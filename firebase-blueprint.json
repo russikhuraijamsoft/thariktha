@@ -1,0 +1,340 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Information stored for each sports ERP user across branches",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique identifier matching Firebase Auth UID" },
+        "name": { "type": "string", "description": "Full name of the user" },
+        "email": { "type": "string", "format": "email", "description": "Verified business email" },
+        "roleId": { "type": "string", "description": "ID of the assigned role" },
+        "branchId": { "type": "string", "description": "ID of the assigned physical branch / closet" },
+        "status": { "type": "string", "enum": ["active", "suspended", "invited"] },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["uid", "name", "email", "roleId", "branchId", "status", "createdAt", "updatedAt"]
+    },
+    "Role": {
+      "title": "Access Role",
+      "description": "Role-Based Access Control definition and permissions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier of the role (e.g., admin, branch_manager, craftsman, printer, accountant)" },
+        "name": { "type": "string", "description": "Display name of the role" },
+        "description": { "type": "string", "description": "Role purpose summary" },
+        "permissions": { "type": "array", "description": "Array of permission strings representing specific actions allowed" }
+      },
+      "required": ["id", "name", "permissions"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Individual athletes, clubs, academies, or retail buyers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique Customer ID" },
+        "name": { "type": "string", "description": "Contact or club name" },
+        "email": { "type": "string", "format": "email", "description": "Primary communication email" },
+        "phone": { "type": "string", "description": "Primary phone contact" },
+        "company": { "type": "string", "description": "Optional parent club or academy name" },
+        "branchId": { "type": "string", "description": "Associated registry branch ID" },
+        "teamIds": { "type": "array", "description": "List of sports teams this customer is affiliated with" },
+        "address": { "type": "object", "description": "Customer home or company shipping address" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "email", "branchId", "createdAt", "updatedAt"]
+    },
+    "Team": {
+      "title": "Athletic Team",
+      "description": "Sports teams/clubs purchasing equipment or custom printed wear",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique Team ID" },
+        "name": { "type": "string", "description": "Official club or team name" },
+        "sportType": { "type": "string", "description": "Sport (e.g., Cricket)" },
+        "contactPerson": { "type": "string", "description": "Primary coordinator name" },
+        "customerId": { "type": "string", "description": "Associated primary customer/billing contact" },
+        "athletesCount": { "type": "integer" },
+        "branchId": { "type": "string", "description": "Affiliated business branch / closet" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "sportType", "customerId", "branchId", "createdAt", "updatedAt"]
+    },
+    "Product": {
+      "title": "Product Master",
+      "description": "Manufacturing specifications, pricing, and catalog details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sku": { "type": "string", "description": "Unique Stock Keeping Unit" },
+        "name": { "type": "string", "description": "Item description (e.g. English Willow Grade-A Bat)" },
+        "category": { "type": "string", "enum": ["bats", "balls", "protective", "teamwear", "accessories"] },
+        "unitPrice": { "type": "number", "description": "Retail catalog sale price" },
+        "costPrice": { "type": "number", "description": "Raw material and assembly cost" },
+        "variations": { "type": "array", "description": "Product dimensions, weights, handle-types, etc." },
+        "status": { "type": "string", "enum": ["active", "discontinued", "draft"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "sku", "name", "category", "unitPrice", "costPrice", "status", "createdAt"]
+    },
+    "Inventory": {
+      "title": "Inventory Levels",
+      "description": "Stock metrics kept per product and localized per branch closet",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Formatted index as branchId_productId" },
+        "productId": { "type": "string", "description": "ID of reference catalog item" },
+        "branchId": { "type": "string", "description": "ID of physical closet storing stock" },
+        "quantityInStock": { "type": "integer" },
+        "safetyStockLevel": { "type": "integer", "description": "Minimum threshold before warnings" },
+        "reorderPoint": { "type": "integer", "description": "Stock count that triggers re-orders" },
+        "locationShelf": { "type": "string", "description": "Aisle, bin, or coordinate inside branch" },
+        "lastStockTakeAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "productId", "branchId", "quantityInStock", "safetyStockLevel", "reorderPoint", "lastStockTakeAt"]
+    },
+    "Order": {
+      "title": "Sales Order",
+      "description": "ERP Orders ranging from hardware manufacturing to printed wear",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "teamId": { "type": "string", "description": "Nullable link to an athletic club" },
+        "branchId": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "pending", "manufacturing", "printing", "ready", "delivered", "canceled"] },
+        "orderDate": { "type": "string", "format": "date-time" },
+        "promisedDate": { "type": "string", "format": "date" },
+        "orderItems": { "type": "array", "description": "Items in purchase scope with prices, custom measurements" },
+        "paymentStatus": { "type": "string", "enum": ["unpaid", "partially_paid", "paid"] },
+        "totalAmount": { "type": "number" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "customerId", "branchId", "status", "orderDate", "paymentStatus", "totalAmount", "createdAt", "updatedAt"]
+    },
+    "Invoice": {
+      "title": "Financial Invoice",
+      "description": "Billing records tied to completed or work-in-progress sales orders",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderId": { "type": "string" },
+        "invoiceNumber": { "type": "string", "description": "Serial invoice number conforming to format (e.g., INV-2026-X11)" },
+        "amountDue": { "type": "number" },
+        "amountPaid": { "type": "number" },
+        "dueDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["unpaid", "partially_paid", "paid", "voided"] },
+        "pdfUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "orderId", "invoiceNumber", "amountDue", "amountPaid", "dueDate", "status", "createdAt"]
+    },
+    "Transaction": {
+      "title": "Capital Transaction",
+      "description": "Ledger records of outgoing expenses or incoming invoice payments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "invoiceId": { "type": "string", "description": "Associated invoice if applicable" },
+        "orderId": { "type": "string", "description": "Associated primary order if applicable" },
+        "branchId": { "type": "string" },
+        "paymentMethod": { "type": "string", "enum": ["cash", "card", "bank_transfer", "cheque"] },
+        "referenceNumber": { "type": "string", "description": "Gateway, token, or bank serial check number" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["credit", "debit"], "description": "Credit for incoming sales, debit for operations outgoing" },
+        "status": { "type": "string", "enum": ["pending", "cleared", "failed"] },
+        "date": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "branchId", "paymentMethod", "amount", "type", "status", "date"]
+    },
+    "ManufacturingJob": {
+      "title": "Manufacturing Job",
+      "description": "State tracking for custom assembly (bats finishing, pressing, handle splicing)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderId": { "type": "string" },
+        "assignedTo": { "type": "string", "description": "Craftsman user ID" },
+        "status": { "type": "string", "enum": ["queued", "wood-splicing", "shaping", "pressing", "binding", "finishing", "quality-check", "complete"] },
+        "priority": { "type": "string", "enum": ["low", "medium", "high", "rush"] },
+        "qualityScore": { "type": "number", "description": "Evaluation percent grade during inspection" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "completedDate": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "orderId", "status", "priority", "startDate"]
+    },
+    "PrintingJob": {
+      "title": "Printing Job",
+      "description": "Custom apparel design, sublimations, logos, and jerseys printing workflow",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderId": { "type": "string" },
+        "printingType": { "type": "string", "enum": ["sublimation", "embroidery", "screen-print", "vinyl-transfer"] },
+        "status": { "type": "string", "enum": ["queued", "vector-proofing", "print-run", "curing", "quality-check", "complete"] },
+        "inkSpecs": { "type": "object", "description": "Config details like Pantone references" },
+        "assignedTo": { "type": "string", "description": "Printer tech user ID" },
+        "itemsCount": { "type": "integer" },
+        "completedDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "orderId", "printingType", "status", "itemsCount"]
+    },
+    "RepairJob": {
+      "title": "Repair Job",
+      "description": "Refurbishment, toe guards replacement, thread-winding, or splitting repairs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "itemDescription": { "type": "string" },
+        "repairType": { "type": "string", "enum": ["scuff-clearing", "thread-wrap", "toe-guard", "handle-re-splice", "blade-bind"] },
+        "status": { "type": "string", "enum": ["received", "assessing", "in-repair", "polishing", "ready"] },
+        "priceQuote": { "type": "number" },
+        "assignedTo": { "type": "string", "description": "Craftsman UID" },
+        "completedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "customerId", "itemDescription", "repairType", "status", "priceQuote"]
+    },
+    "Notification": {
+      "title": "System Alert",
+      "description": "ERP operational event, warning, trigger, or inventory thresholds alert",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "recipientId": { "type": "string", "description": "Target user ID or 'all_branch_managers'" },
+        "category": { "type": "string", "enum": ["inventory_alert", "job_advancement", "new_order", "payment_overdue"] },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "branchId": { "type": "string" },
+        "actionUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "recipientId", "category", "title", "message", "read", "branchId", "createdAt"]
+    },
+    "AnalyticalSummary": {
+      "title": "Analytics Snapshot",
+      "description": "Performance metrics, revenue trackers, and efficiency values calculated per branch",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Format branchId_YYYYMMDD" },
+        "branchId": { "type": "string" },
+        "date": { "type": "string", "format": "date", "description": "Target calculation date" },
+        "totalSales": { "type": "number" },
+        "activeJobsCount": { "type": "integer" },
+        "completedJobsCount": { "type": "integer" },
+        "leadTimeMs": { "type": "number", "description": "Average job lifetime duration metric" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "branchId", "date", "totalSales", "activeJobsCount", "completedJobsCount", "leadTimeMs", "updatedAt"]
+    },
+    "ManufacturingWorkflow": {
+      "title": "Manufacturing Workflow",
+      "description": "Progress state, staff, materials, priority, and timeline of the sports custom order workflow",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "quantity": { "type": "integer" },
+        "dueDate": { "type": "string", "format": "date" },
+        "assignedStaff": { "type": "string" },
+        "progress": { "type": "integer" },
+        "priority": { "type": "string", "enum": ["low", "medium", "high", "rush"] },
+        "paymentStatus": { "type": "string", "enum": ["unpaid", "partially_paid", "paid"] },
+        "stage": { "type": "string", "enum": ["Pending", "Design Approved", "Cutting", "Printing", "Stitching", "Quality Check", "Packed", "Ready for Delivery", "Delivered"] },
+        "notes": { "type": "string" },
+        "materials": { "type": "object" },
+        "history": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "orderId", "customerName", "quantity", "dueDate", "stage", "createdAt", "updatedAt"]
+    },
+    "Setting": {
+      "title": "System Setting",
+      "description": "Global ERP configurations, system variables, thresholds, and administrative states",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier of the configuration profile" },
+        "updatedBy": { "type": "string", "description": "UID of the Super Admin who registered the change" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "configMap": { "type": "object", "description": "Standard configuration attributes map" }
+      },
+      "required": ["id", "updatedBy", "updatedAt", "configMap"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "User",
+      "description": "Local registry for all ERP team users"
+    },
+    "roles": {
+      "schema": "Role",
+      "description": "Static authorization settings for the RBAC system"
+    },
+    "customers": {
+      "schema": "Customer",
+      "description": "Customers, athletes, or representative academies"
+    },
+    "teams": {
+      "schema": "Team",
+      "description": "Registered sports cricket teams and subcategories"
+    },
+    "products": {
+      "schema": "Product",
+      "description": "Available stock products list"
+    },
+    "inventory": {
+      "schema": "Inventory",
+      "description": "Product quantites tracked across each physical branch"
+    },
+    "orders": {
+      "schema": "Order",
+      "description": "Client orders for customized hardware and print items"
+    },
+    "invoices": {
+      "schema": "Invoice",
+      "description": "Billing documentation corresponding to orders"
+    },
+    "transactions": {
+      "schema": "Transaction",
+      "description": "Branch cash registers and global credit ledger statements"
+    },
+    "manufacturing_jobs": {
+      "schema": "ManufacturingJob",
+      "description": "Splicing, blade assembly, finishing workflows and priorities"
+    },
+    "printing_jobs": {
+      "schema": "PrintingJob",
+      "description": "Fabric custom printing pipelines and sublimations"
+    },
+    "repair_jobs": {
+      "schema": "RepairJob",
+      "description": "Cricket bat repair, re-handle, toe-guards, and tuning"
+    },
+    "notifications": {
+      "schema": "Notification",
+      "description": "Low inventory levels or state tracking warning triggers"
+    },
+    "analytics": {
+      "schema": "AnalyticalSummary",
+      "description": "Aggregated daily efficiency data points calculated dynamically"
+    },
+    "manufacturing_workflows": {
+      "schema": "ManufacturingWorkflow",
+      "description": "Realtime assembly, cutting, printing, stitching workflow pipelines for sports garments and hardware"
+    },
+    "settings": {
+      "schema": "Setting",
+      "description": "Global administrative configurations and system environmental variables"
+    }
+  }
+}

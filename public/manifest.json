@@ -1,0 +1,48 @@
+{
+  "name": "Talk of the Town Cricket Closet ERP",
+  "short_name": "Cricket ERP",
+  "description": "Enterprise-grade Offline-First ERP & Fabrication coordinator for Cricket Closet.",
+  "start_url": "./",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0a0a",
+  "theme_color": "#E5B84B",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "https://img.icons8.com/color/192/cricket-glove.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://img.icons8.com/color/512/cricket-glove.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://img.icons8.com/color/512/cricket-glove.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Active Workshop",
+      "short_name": "Workshop",
+      "description": "View active milling and sublimations",
+      "url": "/?tab=manufacturing",
+      "icons": [{ "src": "https://img.icons8.com/color/96/hammer.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Stockroom",
+      "short_name": "Stockroom",
+      "description": "View inventory levels and safety reserves",
+      "url": "/?tab=inventory",
+      "icons": [{ "src": "https://img.icons8.com/color/96/sugar-cubes.png", "sizes": "96x96" }]
+    }
+  ]
+}

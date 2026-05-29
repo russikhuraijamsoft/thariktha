@@ -1,0 +1,6 @@
+{
+  "name": "Talk of the Town Cricket Closet ERP",
+  "description": "SaaS-grade sports ERP platform for multi-branch cricket academies, equipment, storage, and coaching management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

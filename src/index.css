@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Light / Dark Adaptive Colors */
+:root {
+  --bg-main: #0a0a0a;
+  --bg-card: #141414;
+  --bg-inner: #0d0d0d;
+  --border-card: #222222;
+  --border-alt: #1a1a1a;
+  --text-main: #ffffff;
+  --text-sub: #cccccc;
+  --text-muted: #888888;
+}
+
+.theme-light {
+  --bg-main: #FAF9F5; /* Warm off-white sand-cream background */
+  --bg-card: #ffffff; /* Premium Notion white cards */
+  --bg-inner: #f4f3eb; /* Soft panels */
+  --border-card: #e3dec9; /* Delicate warm border */
+  --border-alt: #ecebe2;
+  --text-main: #141312; /* High-access deep carbon dark head */
+  --text-sub: #3d3b38; /* Readable graphite gray text */
+  --text-muted: #848279; /* Warm legend labels */
+}
+
+/* Apply overrides only inside our workspace container when theme-light is active */
+.theme-light .bg-neutral-950 {
+  background-color: var(--bg-main) !important;
+}
+
+.theme-light .bg-neutral-900 {
+  background-color: var(--bg-card) !important;
+}
+
+.theme-light .bg-neutral-950\/50,
+.theme-light .bg-neutral-900\/30,
+.theme-light .bg-neutral-900\/90,
+.theme-light .bg-neutral-950\/80 {
+  background-color: var(--bg-inner) !important;
+}
+
+.theme-light .border-neutral-800,
+.theme-light .border-neutral-805,
+.theme-light .border-neutral-850 {
+  border-color: var(--border-card) !important;
+}
+
+.theme-light .text-white,
+.theme-light .text-neutral-100 {
+  color: var(--text-main) !important;
+}
+
+.theme-light .text-neutral-300,
+.theme-light .text-neutral-400,
+.theme-light .text-neutral-350 {
+  color: var(--text-sub) !important;
+}
+
+.theme-light .text-neutral-500 {
+  color: var(--text-muted) !important;
+}
+
+/* Form element enhancements for theme light */
+.theme-light select,
+.theme-light input,
+.theme-light textarea {
+  background-color: var(--bg-card) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-card) !important;
+}
+
+.theme-light select option {
+  background-color: var(--bg-card) !important;
+  color: var(--text-main) !important;
+}
+
