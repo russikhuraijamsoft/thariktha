@@ -1,6 +1,6 @@
 /**
  * Firestore Security Rules for Procurement Module
- * Add these rules to your firestore.rules file
+ * Add these rules to your main firestore.rules file
  */
 
 // ============================================================
