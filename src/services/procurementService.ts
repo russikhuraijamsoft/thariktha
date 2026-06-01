@@ -356,10 +356,6 @@ export const goodsReceiptService = {
         });
       });
 
-      // 3. Update inventory quantities for each product
-      // (This assumes inventory is stored in a products collection)
-      // You may need to adjust based on your inventory storage structure
-
       await batch.commit();
       return grRef.id;
     } catch (error) {
@@ -566,7 +562,7 @@ export const inventoryMovementService = {
   /**
    * Get movements by branch
    */
-  async getMovementsByBranch(branchId: string, limit?: number): Promise<InventoryMovement[]> {
+  async getMovementsByBranch(branchId: string, limitVal?: number): Promise<InventoryMovement[]> {
     try {
       let q = query(
         collection(db, 'inventory_movements'),
@@ -574,12 +570,12 @@ export const inventoryMovementService = {
         orderBy('timestamp', 'desc')
       );
 
-      if (limit) {
+      if (limitVal) {
         q = query(
           collection(db, 'inventory_movements'),
           where('branchId', '==', branchId),
           orderBy('timestamp', 'desc'),
-          limit(limit as any)
+          limit(limitVal)
         );
       }
 
