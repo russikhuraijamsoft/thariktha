@@ -28,26 +28,36 @@ jobs:
 
       - name: Setup Android NDK
         run: |
-          # Ensure env vars point to the runner SDK location if not already set
+          # Known runner SDK location (used as a fallback)
+          SDK_PATH=/usr/local/lib/android/sdk
+
+          # Ensure env vars point to the runner SDK location if not already set,
+          # export them into the current shell so this step can use them immediately,
+          # and also write them to $GITHUB_ENV so subsequent steps see them.
           if [ -z "$ANDROID_HOME" ]; then
-            echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+            export ANDROID_HOME="$SDK_PATH"
+            echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
           fi
           if [ -z "$ANDROID_SDK_ROOT" ]; then
-            echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+            export ANDROID_SDK_ROOT="$SDK_PATH"
+            echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           fi
 
-          # Accept licenses first to avoid interactive prompts and ensure cmdline-tools exist
-          if [ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
-            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;26.1.10909125"
-          else
-            # Fall back to absolute known path (some runners preinstall here)
-            yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
-            /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909125"
+          # Prefer sdkmanager under the configured ANDROID_HOME/ANDROID_SDK_ROOT; fall back to known absolute path
+          SDKMANAGER_PATH="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER_PATH" ]; then
+            SDKMANAGER_PATH="$SDK_PATH/cmdline-tools/latest/bin/sdkmanager"
           fi
 
-          echo "NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
-          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
+          # Accept licenses first to avoid interactive prompts, then install the NDK
+          yes | "$SDKMANAGER_PATH" --licenses || true
+          "$SDKMANAGER_PATH" --install "ndk;26.1.10909125"
+
+          # Export and persist NDK paths for subsequent steps
+          export NDK_HOME="$ANDROID_SDK_ROOT/ndk/26.1.10909125"
+          export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/26.1.10909125"
+          echo "NDK_HOME=$NDK_HOME" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT" >> $GITHUB_ENV
 
       - name: Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
