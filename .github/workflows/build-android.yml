@@ -14,10 +14,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js (v22 required for puppeteer/vite dependencies)
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Rust target for Android
@@ -41,8 +41,15 @@ jobs:
       - name: Build Web Frontend
         run: npm run build
 
-      - name: Initialize Tauri Android (if not present)
-        run: npx @tauri-apps/cli android init --no-prompt || true
+      - name: Generate Tauri Scaffold if Missing
+        run: |
+          if [ ! -d "src-tauri" ]; then
+            echo "Initializing Tauri configuration..."
+            npx @tauri-apps/cli init --app-name "Cricket-Closet-ERP" --window-title "Talk of the Town Cricket Closet ERP" --dist "../dist" --dev-url "http://localhost:5173" --no-interactive
+          fi
+
+      - name: Initialize Tauri Android Project
+        run: npx @tauri-apps/cli android init --no-prompt
 
       - name: Build Android APK
         run: npx @tauri-apps/cli android build
