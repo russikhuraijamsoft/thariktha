@@ -20,10 +20,6 @@ jobs:
           node-version: 22
           cache: 'npm'
 
-      - name: Install Rust target for Android
-        run: |
-          rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
-
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
@@ -32,8 +28,21 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '11.0'
 
-      - name: Install Dependencies & Tauri CLI
+      - name: Install Android NDK
+        run: |
+          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909125"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: "aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android"
+
+      - name: Install Dependencies
         run: |
           npm ci
           npm install -D @tauri-apps/cli@latest
@@ -49,13 +58,16 @@ jobs:
           fi
 
       - name: Initialize Tauri Android Project
-        run: npx @tauri-apps/cli android init --no-prompt
+        run: |
+          if [ ! -d "src-tauri/gen/android" ]; then
+            npx @tauri-apps/cli android init --no-prompt
+          fi
 
       - name: Build Android APK
-        run: npx @tauri-apps/cli android build
+        run: npx @tauri-apps/cli android build --apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Cricket-Closet-ERP-Android-APK
-          path: src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
