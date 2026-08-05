@@ -49,7 +49,7 @@ jobs:
         run: |
           if [ ! -d "src-tauri" ]; then
             echo "Initializing Tauri configuration..."
-            npx @tauri-apps/cli init --app-name "Cricket-Closet-ERP" --window-title "Talk of the Town Cricket Closet ERP" --frontend-dist "../dist" --dev-url "http://localhost:5173" --no-interactive
+            npx @tauri-apps/cli init --app-name "Cricket-Closet-ERP" --window-title "Talk of the Town Cricket Closet ERP" --frontend-dist "../dist" --dev-url "http://localhost:5173" --ci
           fi
 
       - name: Initialize Tauri Android Project
