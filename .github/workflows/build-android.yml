@@ -14,7 +14,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js (v22 required for puppeteer/vite dependencies)
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -46,30 +46,6 @@ jobs:
           if [ ! -d "src-tauri" ]; then
             echo "Initializing Tauri configuration..."
             npx @tauri-apps/cli init --app-name "Cricket-Closet-ERP" --window-title "Talk of the Town Cricket Closet ERP" --frontend-dist "../dist" --dev-url "http://localhost:5173" --no-interactive
-          fi
-
-      - name: Initialize Tauri Android Project
-        run: npx @tauri-apps/cli android init --no-prompt
-
-      - name: Build Android APK
-        run: npx @tauri-apps/cli android build
-
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Cricket-Closet-ERP-Android-APK
-          path: src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk        run: |
-          npm ci
-          npm install -D @tauri-apps/cli@latest
-
-      - name: Build Web Frontend
-        run: npm run build
-
-      - name: Generate Tauri Scaffold if Missing
-        run: |
-          if [ ! -d "src-tauri" ]; then
-            echo "Initializing Tauri configuration..."
-            npx @tauri-apps/cli init --app-name "Cricket-Closet-ERP" --window-title "Talk of the Town Cricket Closet ERP" --dist "../dist" --dev-url "http://localhost:5173" --no-interactive
           fi
 
       - name: Initialize Tauri Android Project
