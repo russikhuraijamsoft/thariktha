@@ -257,64 +257,99 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
   };
 
   // --- SNAPSHOT LISTENER WITH LOCAL STORAGE FALLBACK ---
-  useEffect(() => {
-    let unsubscribe = () => {};
+  const fetchOrdersFromAzure = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/orders');
+      if (response.ok) {
+        const list = await response.json();
+        
+        // Match/merge with extended details from local storage if available
+        const localExtKey = `tott_cricket_closet_orders_extended_${branchScope}`;
+        const cachedExtended = localStorage.getItem(localExtKey);
+        let mapCached: Record<string, any> = {};
+        if (cachedExtended) {
+          try {
+            mapCached = JSON.parse(cachedExtended);
+          } catch (e) {
+            console.error("Failed to parse cached extended orders map:", e);
+          }
+        }
 
-    if (isCloudConnected) {
-      setIsLoading(true);
-      try {
-        const q = query(
-          collection(db, 'orders'),
-          orderBy('createdAt', 'desc')
-        );
-
-        unsubscribe = onSnapshot(q, (snapshot) => {
-          const list: ERPOrderExtended[] = [];
-          snapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-            // Map Firestore doc data cleanly
-            list.push({
-              id: docSnap.id,
-              ...data,
-              // convert Timestamp fields back safely
-              orderDate: data.orderDate instanceof Timestamp ? data.orderDate.toDate().toISOString() : data.orderDate,
-              createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : data.createdAt,
-              updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : data.updatedAt,
-            } as unknown as ERPOrderExtended);
-          });
-          
-          // filter by active branchScope
-          const filtered = list.filter(o => o.branchId === branchScope);
-          setOrders(filtered);
-          setIsLoading(false);
-        }, (error) => {
-          handleFirestoreError(error, OperationType.LIST, 'orders');
+        const mergedList: ERPOrderExtended[] = list.map((order: any) => {
+          const ext = mapCached[order.id] || {};
+          return {
+            id: order.id,
+            customerId: order.customerId || 'CUST-001',
+            customerName: order.customerName || 'Standard Client',
+            phone: order.phone || ext.phone || '+61-491-570-156',
+            teamName: order.teamName || ext.teamName || 'VCA Super Giants',
+            branchId: order.branchId || branchScope,
+            orderType: order.orderType || ext.orderType || 'Sublimation Jerseys',
+            status: order.status || 'pending',
+            workflowStatus: ext.workflowStatus || 'Inquiry',
+            paymentStatus: order.paymentStatus || 'unpaid',
+            orderItems: ext.orderItems || [
+              { id: '1', name: order.itemSummary || 'Custom Willow Gear', price: order.totalAmount, qty: 1, category: 'bat' }
+            ],
+            totalAmount: order.totalAmount || 0,
+            advancePayment: ext.advancePayment || 0,
+            remainingPayment: order.totalAmount - (ext.advancePayment || 0),
+            comments: ext.comments || [
+              { id: '1', author: 'System Sync', role: 'BOT', comment: order.notes || 'Order load synced from database.', timestamp: order.createdAt || new Date().toISOString() }
+            ],
+            attachments: ext.attachments || [],
+            assignedStaffId: ext.assignedStaffId || '',
+            orderDate: order.promisedDate || new Date().toISOString(),
+            createdAt: order.createdAt || new Date().toISOString(),
+            updatedAt: order.createdAt || new Date().toISOString()
+          } as unknown as ERPOrderExtended;
         });
-      } catch (err) {
-        console.warn("Realtime Firestore Sync failed. Switching to Local PWA Storage fallbacks", err);
+
+        // Filter by active branchScope
+        const filtered = mergedList.filter(o => o.branchId === branchScope || o.branchId === `${branchScope} Closets`);
+        setOrders(filtered);
+      } else {
+        console.warn("Failed fetching orders from REST, falling back to local files.");
         loadLocalFallbacks();
       }
-    } else {
+    } catch (err) {
+      console.error("Orders REST Fetch error:", err);
       loadLocalFallbacks();
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    return () => unsubscribe();
+  useEffect(() => {
+    fetchOrdersFromAzure();
   }, [branchScope]);
 
   const loadLocalFallbacks = () => {
     setIsLoading(true);
     const local = localStorage.getItem(`tott_cricket_closet_orders_${branchScope}`);
     if (local) {
-      setOrders(JSON.parse(local));
+      try {
+        setOrders(JSON.parse(local));
+      } catch (e) {
+        console.error("Failed to parse local cached orders list:", e);
+        // Fall back to seed orders below
+        seedOrders();
+      }
     } else {
+      seedOrders();
+    }
+  };
+
+  const seedOrders = () => {
       // Seed original custom orders
       const seed: ERPOrderExtended[] = [
         {
           id: "TOTT-2026-9501",
           customerId: "CUST-001",
-          customerName: "Victorian Cricket Academy",
-          phone: "+61-491-570-156",
-          teamName: "VCA Super Giants",
+          customerName: "Manipur Cricket Academy (Imphal)",
+          phone: "+91-385-2441011",
+          teamName: "MCA Super Giants",
           branchId: "Melbourne Closets",
           orderType: "Sublimation Jerseys",
           status: "pending",
@@ -328,10 +363,10 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
           assignedStaffId: "staff_printer_sarah",
           assignedStaffName: "Sarah Printworks",
           attachments: [
-            { id: '1', name: 'Melb_Neon_Stripes_Vector.png', url: VECTOR_JERSEY_TEMPLATES[0].url, size: '2.4 MB', uploadedAt: '10 hours ago' }
+            { id: '1', name: 'Imphal_Neon_Stripes_Vector.png', url: VECTOR_JERSEY_TEMPLATES[0].url, size: '2.4 MB', uploadedAt: '10 hours ago' }
           ],
           comments: [
-            { id: 'c1', author: 'Sir Donald Bradman', role: 'Super Admin', comment: 'Client confirmed double collar seam.', timestamp: '2026-05-24 14:22' }
+            { id: 'c1', author: 'Biren Singh', role: 'Super Admin', comment: 'Client confirmed double collar seam.', timestamp: '2026-05-24 14:22' }
           ],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -344,8 +379,8 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
               category: 'jersey',
               sizes: { S: 5, M: 8, L: 5, XL: 2, XXL: 0 },
               playerRoster: [
-                { name: 'Smith', number: '49', size: 'M' },
-                { name: 'Warner', number: '31', size: 'L' }
+                { name: 'Chungkham', number: '49', size: 'M' },
+                { name: 'Laishram', number: '31', size: 'L' }
               ]
             }
           ]
@@ -353,9 +388,9 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
         {
           id: "TOTT-2026-9502",
           customerId: "CUST-002",
-          customerName: "Melton Cobras CC",
-          phone: "+61-491-570-221",
-          teamName: "Cobras Division A",
+          customerName: "Imphal Eastern Youth Sports Club",
+          phone: "+91-385-2442221",
+          teamName: "Imphal Eastern Division A",
           branchId: "Melbourne Closets",
           orderType: "Complete Cricket Kit",
           status: "printing",
@@ -369,7 +404,7 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
           assignedStaffId: "staff_printer_sarah",
           assignedStaffName: "Sarah Printworks",
           attachments: [
-            { id: '2', name: 'Melton_Ribbon_Spec.png', url: VECTOR_JERSEY_TEMPLATES[1].url, size: '1.8 MB', uploadedAt: '1 day ago' }
+            { id: '2', name: 'Imphal_Eastern_Ribbon_Spec.png', url: VECTOR_JERSEY_TEMPLATES[1].url, size: '1.8 MB', uploadedAt: '1 day ago' }
           ],
           comments: [],
           createdAt: new Date(Date.now() - 48*60*60*1000).toISOString(),
@@ -389,8 +424,7 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
       ];
       localStorage.setItem(`tott_cricket_closet_orders_${branchScope}`, JSON.stringify(seed));
       setOrders(seed);
-    }
-    setIsLoading(false);
+      setIsLoading(false);
   };
 
   // --- CREATE NEW ORDER ---
@@ -440,27 +474,73 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
           id: 'c_init',
           author: profile?.name || 'In-store Clerk',
           role: profile?.roleId ? profile.roleId.toUpperCase() : 'STAFF',
-          comment: `Order registered under initial status Inquiry. Balance due: $${Math.max(0, calculatedSumPrice - (Number(newOrder.advancePayment) || 0)).toFixed(2)}.`,
+          comment: `Order registered under initial status Inquiry. Balance due: ₹${Math.max(0, calculatedSumPrice - (Number(newOrder.advancePayment) || 0)).toFixed(2)}.`,
           timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16)
         }
       ],
-      createdAt: isCloudConnected ? Timestamp.fromDate(new Date()) : new Date().toISOString(),
-      updatedAt: isCloudConnected ? Timestamp.fromDate(new Date()) : new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
-    if (isCloudConnected) {
-      try {
-        await setDoc(doc(db, 'orders', orderId), {
-          ...orderPayload,
-          // Guarantee Timestamp types matched schema rules expectations
-          orderDate: Timestamp.fromDate(new Date(newOrder.promisedDate)),
-          createdAt: Timestamp.fromDate(new Date()),
-          updatedAt: Timestamp.fromDate(new Date())
-        });
-      } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, `orders/${orderId}`);
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: orderId,
+          customerId: orderPayload.customerId || 'CUST-001',
+          totalAmount: orderPayload.totalAmount,
+          status: orderPayload.status,
+          notes: orderPayload.notes || 'Custom Order Design',
+          paymentStatus: orderPayload.paymentStatus,
+          promisedDate: orderPayload.promisedDate
+        })
+      });
+
+      if (response.ok) {
+        for (const item of orderPayload.orderItems) {
+          const qty = item.sizes ? sumSizes(item.sizes as Record<string, number>, 0) : item.qty;
+          await fetch('/api/orderitems', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              itemId: `ITEM-${Math.floor(1000 + Math.random() * 9000)}`,
+              orderId: orderId,
+              sku: (item as any).sku || item.id || `SKU-${item.name.substring(0,3).toUpperCase()}`,
+              quantity: qty || 1,
+              unitPrice: item.price || 45.00
+            })
+          });
+        }
       }
-    } else {
+
+      // Save custom extended fields (comments, attachments etc) in local storage extended mapping
+      const localExtKey = `tott_cricket_closet_orders_extended_${branchScope}`;
+      const cachedExtended = localStorage.getItem(localExtKey);
+      let mapCached: Record<string, any> = {};
+      if (cachedExtended) {
+        try {
+          mapCached = JSON.parse(cachedExtended);
+        } catch (e) {
+          console.error("Failed to parse local cached extended map on write:", e);
+        }
+      }
+      mapCached[orderId] = {
+        phone: orderPayload.phone,
+        teamName: orderPayload.teamName,
+        orderType: orderPayload.orderType,
+        orderItems: orderPayload.orderItems,
+        advancePayment: orderPayload.advancePayment,
+        comments: orderPayload.comments,
+        attachments: orderPayload.attachments,
+        assignedStaffId: orderPayload.assignedStaffId,
+        workflowStatus: orderPayload.workflowStatus
+      };
+      localStorage.setItem(localExtKey, JSON.stringify(mapCached));
+
+      await fetchOrdersFromAzure();
+    } catch (err) {
+      console.error("Failed storing order in Azure, falling back locally:", err);
       const updated = [orderPayload, ...orders];
       localStorage.setItem(`tott_cricket_closet_orders_${branchScope}`, JSON.stringify(updated));
       setOrders(updated);
@@ -493,6 +573,22 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
     setIsNewOrderModalOpen(false);
   };
 
+  const saveOrderExtendedDetailsLocally = (orderId: string, updatedFields: Partial<ERPOrderExtended>) => {
+    const localExtKey = `tott_cricket_closet_orders_extended_${branchScope}`;
+    const cachedExtended = localStorage.getItem(localExtKey);
+    let mapCached: Record<string, any> = {};
+    try {
+      mapCached = cachedExtended ? JSON.parse(cachedExtended) : {};
+    } catch (err) {
+      mapCached = {};
+    }
+    mapCached[orderId] = {
+      ...(mapCached[orderId] || {}),
+      ...updatedFields
+    };
+    localStorage.setItem(localExtKey, JSON.stringify(mapCached));
+  };
+
   // --- TRANSITION WORKFLOW STEP & CALCULATE BASE STATUS IN SYNC ---
   const handleTransitionWorkflow = async (orderId: string, targetStep: WorkflowStatusType) => {
     const updatedBaseStatus = getBaseStatus(targetStep);
@@ -509,19 +605,29 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
 
     const newComments = [...(orderToUpdate.comments || []), updatedLogComment];
 
-    if (isCloudConnected) {
-      try {
-        const orderRef = doc(db, 'orders', orderId);
-        await updateDoc(orderRef, {
-          workflowStatus: targetStep,
+    try {
+      await fetch(`/api/orders/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: updatedBaseStatus })
+      });
+      saveOrderExtendedDetailsLocally(orderId, {
+        workflowStatus: targetStep,
+        comments: newComments
+      });
+      await fetchOrdersFromAzure();
+      
+      // Update selectedOrder details in view state if currently focused
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder({
+          ...selectedOrder,
           status: updatedBaseStatus,
-          comments: newComments,
-          updatedAt: Timestamp.fromDate(new Date())
+          workflowStatus: targetStep,
+          comments: newComments
         });
-      } catch (err) {
-        handleFirestoreError(err, OperationType.UPDATE, `orders/${orderId}`);
       }
-    } else {
+    } catch (err) {
+      console.error("Failed executing transition workflow REST put:", err);
       const updatedList = orders.map(o => {
         if (o.id === orderId) {
           const mod = {
@@ -538,7 +644,6 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
         }
         return o;
       });
-      localStorage.setItem(`tott_cricket_closet_orders_${branchScope}`, JSON.stringify(updatedList));
       setOrders(updatedList);
     }
   };
@@ -560,31 +665,19 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
 
     const newComments = [...(orderToUpdate.comments || []), newComment];
 
-    if (isCloudConnected) {
-      try {
-        const orderRef = doc(db, 'orders', orderId);
-        await updateDoc(orderRef, {
-          comments: newComments,
-          updatedAt: Timestamp.fromDate(new Date())
-        });
-      } catch (err) {
-        handleFirestoreError(err, OperationType.UPDATE, `orders/${orderId}`);
-      }
-    } else {
-      const updatedList = orders.map(o => {
-        if (o.id === orderId) {
-          const mod = {
-            ...o,
-            comments: newComments,
-            updatedAt: new Date().toISOString()
-          };
-          setSelectedOrder(mod);
-          return mod;
-        }
-        return o;
+    try {
+      saveOrderExtendedDetailsLocally(orderId, {
+        comments: newComments
       });
-      localStorage.setItem(`tott_cricket_closet_orders_${branchScope}`, JSON.stringify(updatedList));
-      setOrders(updatedList);
+      await fetchOrdersFromAzure();
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder({
+          ...selectedOrder,
+          comments: newComments
+        });
+      }
+    } catch (err) {
+      console.error(err);
     }
     setCommentText('');
   };
@@ -604,43 +697,34 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
       id: `comment_${Date.now()}`,
       author: profile?.name || 'Financial Desk',
       role: 'FINANCE',
-      comment: `Registered payment installment of $${Number(paymentAmount).toFixed(2)}. Total Advance: $${updatedAdvance.toFixed(2)}. Remaining due: $${updatedRemaining.toFixed(2)}.`,
+      comment: `Registered payment installment of ₹${Number(paymentAmount).toFixed(2)}. Total Advance: ₹${updatedAdvance.toFixed(2)}. Remaining due: ₹${updatedRemaining.toFixed(2)}.`,
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16)
     };
 
     const newComments = [...(orderToUpdate.comments || []), newComment];
 
-    if (isCloudConnected) {
-      try {
-        const orderRef = doc(db, 'orders', orderId);
-        await updateDoc(orderRef, {
+    try {
+      await fetch(`/api/orders/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: calculatedPaymentStatus === 'paid' ? 'ready' : orderToUpdate.status })
+      });
+      saveOrderExtendedDetailsLocally(orderId, {
+        advancePayment: updatedAdvance,
+        comments: newComments
+      });
+      await fetchOrdersFromAzure();
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder({
+          ...selectedOrder,
           advancePayment: updatedAdvance,
           remainingPayment: updatedRemaining,
           paymentStatus: calculatedPaymentStatus,
-          comments: newComments,
-          updatedAt: Timestamp.fromDate(new Date())
+          comments: newComments
         });
-      } catch (err) {
-        handleFirestoreError(err, OperationType.UPDATE, `orders/${orderId}`);
       }
-    } else {
-      const updatedList = orders.map(o => {
-        if (o.id === orderId) {
-          const mod = {
-            ...o,
-            advancePayment: updatedAdvance,
-            remainingPayment: updatedRemaining,
-            paymentStatus: calculatedPaymentStatus,
-            comments: newComments,
-            updatedAt: new Date().toISOString()
-          };
-          setSelectedOrder(mod);
-          return mod;
-        }
-        return o;
-      });
-      localStorage.setItem(`tott_cricket_closet_orders_${branchScope}`, JSON.stringify(updatedList));
-      setOrders(updatedList);
+    } catch (err) {
+      console.error(err);
     }
     setPaymentAmount(0);
   };
@@ -838,7 +922,7 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
             <span className="p-1 px-1.5 text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 rounded font-mono font-bold">Active</span>
           </div>
           <div className="flex justify-between items-baseline">
-            <span className="text-2xl font-black font-mono text-[#1A1A1A]">${totalFinancialOverage.toFixed(2)}</span>
+            <span className="text-2xl font-black font-mono text-[#1A1A1A]">₹{totalFinancialOverage.toFixed(2)}</span>
             <span className="text-[11px] text-neutral-400 font-mono">Accumulated</span>
           </div>
         </div>
@@ -849,7 +933,7 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
             <span className="p-1 px-1.5 text-[9px] bg-amber-50 text-amber-700 border border-amber-200 rounded font-mono font-bold">Balance</span>
           </div>
           <div className="flex justify-between items-baseline">
-            <span className="text-2xl font-black font-mono text-[#E5B84B]">${remainingFinanceDue.toFixed(2)}</span>
+            <span className="text-2xl font-black font-mono text-[#E5B84B]">₹{remainingFinanceDue.toFixed(2)}</span>
             <span className="text-[11px] text-neutral-400 font-mono">Uncollected</span>
           </div>
         </div>
@@ -1057,17 +1141,17 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
                           </td>
                           <td className="px-6 py-4">
                             <span className="text-xs font-mono font-black text-neutral-900 block">
-                              ${order.totalAmount.toFixed(2)}
+                              ₹{order.totalAmount.toFixed(2)}
                             </span>
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex flex-col">
                               <span className="text-xs font-bold font-mono text-emerald-600">
-                                Paid: ${order.advancePayment.toFixed(2)}
+                                Paid: ₹{order.advancePayment.toFixed(2)}
                               </span>
                               {calculatedRemaining > 0 ? (
                                 <span className="text-[10px] text-red-500 font-mono font-bold mt-0.5">
-                                  Bal: ${calculatedRemaining.toFixed(2)}
+                                  Bal: ₹{calculatedRemaining.toFixed(2)}
                                 </span>
                               ) : (
                                 <span className="text-[9px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-250 font-bold uppercase rounded px-1 py-0.2 mt-0.5 inline-block w-fit">
@@ -1157,9 +1241,9 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
                                   <span>{order.promisedDate}</span>
                                 </div>
                                 <div className="text-right flex flex-col">
-                                  <span className="text-[10px] font-mono font-bold text-[#1A1A1A]">${order.totalAmount.toFixed(2)}</span>
+                                  <span className="text-[10px] font-mono font-bold text-[#1A1A1A]">₹{order.totalAmount.toFixed(2)}</span>
                                   {calculatedRemaining > 0 && (
-                                    <span className="text-[8px] font-mono text-neutral-400 leading-none">Bal: ${calculatedRemaining.toFixed(2)}</span>
+                                    <span className="text-[8px] font-mono text-neutral-400 leading-none">Bal: ₹{calculatedRemaining.toFixed(2)}</span>
                                   )}
                                 </div>
                               </div>
@@ -1291,7 +1375,7 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[10px] text-neutral-600 font-bold uppercase">Advance payment received ($)</label>
+                      <label className="text-[10px] text-neutral-600 font-bold uppercase">Advance payment received (₹)</label>
                       <input 
                         type="number" 
                         min="0"
@@ -1706,17 +1790,17 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
                 <div className="bg-[#FFFDF6] border border-[#E5B84B]/20 p-4 rounded-xl flex justify-between items-center text-left">
                   <div className="space-y-1">
                     <span className="text-[9px] font-mono text-neutral-500 uppercase tracking-wider block">Total specification invoice</span>
-                    <span className="text-xl font-mono font-black text-[#1A1A1A]">${selectedOrder.totalAmount.toFixed(2)}</span>
+                    <span className="text-xl font-mono font-black text-[#1A1A1A]">₹{selectedOrder.totalAmount.toFixed(2)}</span>
                   </div>
 
                   <div className="space-y-1 text-center">
                     <span className="text-[9px] font-mono text-neutral-500 uppercase tracking-wider block">Advance Paid</span>
-                    <span className="text-base font-mono font-bold text-emerald-600 block">${selectedOrder.advancePayment.toFixed(2)}</span>
+                    <span className="text-base font-mono font-bold text-emerald-600 block">₹{selectedOrder.advancePayment.toFixed(2)}</span>
                   </div>
 
                   <div className="space-y-1 text-right">
                     <span className="text-[9px] font-mono text-neutral-500 uppercase tracking-wider block">Remaining balance</span>
-                    <span className="text-base font-mono font-black text-red-650 block">${selectedOrder.remainingPayment.toFixed(2)}</span>
+                    <span className="text-base font-mono font-black text-red-650 block">₹{selectedOrder.remainingPayment.toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -1732,7 +1816,7 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
                             <span className="text-[9px] font-mono text-neutral-400 capitalize">Category: {item.category}</span>
                           </div>
                           <div className="text-right">
-                            <span className="text-xs font-mono font-extrabold text-black block">${item.price.toFixed(2)} / unit</span>
+                            <span className="text-xs font-mono font-extrabold text-black block">₹{item.price.toFixed(2)} / unit</span>
                             <span className="text-[10px] text-neutral-500 font-mono">Aggregated Total: {item.qty} units</span>
                           </div>
                         </div>
@@ -1869,16 +1953,15 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
 
                 <div className="flex gap-2">
                   <button 
-                    onClick={() => {
+                    onClick={async () => {
                       if (confirm("Verify action: Delete custom orders from master ledger?")) {
-                        // Simulated deletion
-                        if (isCloudConnected) {
-                          try {
-                            deleteDoc(doc(db, 'orders', selectedOrder.id));
-                          } catch (err) {
-                            handleFirestoreError(err, OperationType.DELETE, `orders/${selectedOrder.id}`);
-                          }
-                        } else {
+                        try {
+                          await fetch(`/api/orders/${selectedOrder.id}`, {
+                            method: 'DELETE'
+                          });
+                          await fetchOrdersFromAzure();
+                        } catch (err) {
+                          console.error("Failed to delete order from Azure:", err);
                           const updated = orders.filter(o => o.id !== selectedOrder.id);
                           localStorage.setItem(`tott_cricket_closet_orders_${branchScope}`, JSON.stringify(updated));
                           setOrders(updated);

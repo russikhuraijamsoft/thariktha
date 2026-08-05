@@ -25,6 +25,8 @@ import {
 import { db, isCloudConnected } from '../firebase';
 import { ProductItem } from './InventoryView';
 import { CRMCustomer } from './CRMView';
+import { LoansAdvancesView } from './LoansAdvancesView';
+import brandLogo from '../assets/images/talk_of_the_town_logo_1780894452079.png';
 
 // Fallback seed products in case Firestore is empty
 const SEED_POS_PRODUCTS = [
@@ -107,9 +109,9 @@ const SEED_POS_PRODUCTS = [
 ];
 
 const SEED_POS_CUSTOMERS = [
-  { id: "CUST-001", name: "Victorian Cricket Academy", email: "contact@viccricket.org", phone: "+61-491-570-156", branch: "Melbourne Closets" },
-  { id: "CUST-002", name: "Melton Cobras CC", email: "coach@meltoncobras.cc", phone: "+61-491-570-221", branch: "Melbourne Closets" },
-  { id: "CUST-003", name: "Stuart Broad", email: "stuart@broadathletics.co.uk", phone: "+44-7911-884-211", branch: "London Closets" }
+  { id: "CUST-001", name: "Manipur Cricket Academy (Imphal)", email: "contact@manipurcricketacademy.org.in", phone: "+91-385-2441011", branch: "Melbourne Closets" },
+  { id: "CUST-002", name: "Imphal Eastern Youth Sports Club", email: "info@imphaleasternclub.com", phone: "+91-385-2442221", branch: "Melbourne Closets" },
+  { id: "CUST-003", name: "Chungkham Singh (Refurb)", email: "chungkham@manipurathletics.org.in", phone: "+91-385-9988111", branch: "London Closets" }
 ];
 
 interface CartItem {
@@ -117,6 +119,77 @@ interface CartItem {
   quantity: number;
   notes: string;
 }
+
+export interface LoanRepayment {
+  id: string;
+  amount: number;
+  paymentMethod: 'cash' | 'card' | 'bank_transfer';
+  repaymentDate: string;
+  referenceCode: string;
+  notes: string;
+}
+
+export interface LoanRecord {
+  id: string;
+  borrowerName: string;
+  borrowerCategory: 'staff' | 'customer' | 'external';
+  borrowerId?: string;
+  amountDisbursed: number;
+  interestRate: number;
+  durationMonths: number;
+  disbursalDate: string;
+  status: 'active' | 'fully_paid' | 'defaulted';
+  notes: string;
+  repayments: LoanRepayment[];
+}
+
+const SEED_LOANS: LoanRecord[] = [
+  {
+    id: "LOAN-2026-001",
+    borrowerName: "Chungkham Singh (Personnel - Coach)",
+    borrowerCategory: "staff",
+    borrowerId: "STAFF-001",
+    amountDisbursed: 25000,
+    interestRate: 0,
+    durationMonths: 6,
+    disbursalDate: "2026-04-10",
+    status: "active",
+    notes: "Salary advance for medical expenses. Repayments deducted monthly.",
+    repayments: [
+      { id: "RPAY-2026-001", amount: 4166.67, paymentMethod: "cash", repaymentDate: "2026-05-01", referenceCode: "CASH-REC-102", notes: "First month installment" },
+      { id: "RPAY-2026-002", amount: 4166.67, paymentMethod: "cash", repaymentDate: "2026-06-01", referenceCode: "CASH-REC-128", notes: "Second month installment" }
+    ]
+  },
+  {
+    id: "LOAN-2026-002",
+    borrowerName: "Manipur Cricket Academy (Imphal)",
+    borrowerCategory: "customer",
+    borrowerId: "CUST-001",
+    amountDisbursed: 150000,
+    interestRate: 4.5,
+    durationMonths: 12,
+    disbursalDate: "2026-01-15",
+    status: "active",
+    notes: "Equipment purchase seasonal loan. Interest rate calculated flat annually.",
+    repayments: [
+      { id: "RPAY-2026-003", amount: 50000, paymentMethod: "bank_transfer", repaymentDate: "2026-03-31", referenceCode: "HSBC-TXN-90212", notes: "Bulk advance return" }
+    ]
+  },
+  {
+    id: "LOAN-2026-003",
+    borrowerName: "Sunridge Sports India",
+    borrowerCategory: "external",
+    amountDisbursed: 80000,
+    interestRate: 0,
+    durationMonths: 3,
+    disbursalDate: "2026-05-01",
+    status: "fully_paid",
+    notes: "Reversible container customs deposit advance.",
+    repayments: [
+      { id: "RPAY-2026-004", amount: 80000, paymentMethod: "bank_transfer", repaymentDate: "2026-05-28", referenceCode: "SBI-REMIT-8431", notes: "Refund from customs cleared" }
+    ]
+  }
+];
 
 interface BillingPOSViewProps {
   branchScope: 'Melbourne Closets' | 'London Closets';
@@ -129,6 +202,179 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
   const [customers, setCustomers] = useState<CRMCustomer[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // --- LOANS & ADVANCES MANAGEMENT STATE ---
+  const [billingSubTab, setBillingSubTab] = useState<'checkout' | 'loans'>('checkout');
+  
+  const [loans, setLoans] = useState<LoanRecord[]>(() => {
+    const local = localStorage.getItem('cricket_closet_loans');
+    if (local) {
+      try {
+        return JSON.parse(local);
+      } catch {
+        // ignore
+      }
+    }
+    return SEED_LOANS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('cricket_closet_loans', JSON.stringify(loans));
+  }, [loans]);
+
+  const [selectedLoanId, setSelectedLoanId] = useState<string | null>("LOAN-2026-001");
+  const [loanSearch, setLoanSearch] = useState('');
+  const [loanCategoryFilter, setLoanCategoryFilter] = useState<'all' | 'staff' | 'customer' | 'external' | 'fully_paid'>('all');
+
+  // New Loan Form Dialog state
+  const [isDisburseModalOpen, setIsDisburseModalOpen] = useState(false);
+  const [newLoanName, setNewLoanName] = useState('');
+  const [newLoanCategory, setNewLoanCategory] = useState<'staff' | 'customer' | 'external'>('staff');
+  const [newLoanId, setNewLoanId] = useState('');
+  const [newLoanAmount, setNewLoanAmount] = useState('');
+  const [newLoanInterest, setNewLoanInterest] = useState('0');
+  const [newLoanDuration, setNewLoanDuration] = useState('6');
+  const [newLoanDate, setNewLoanDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [newLoanNotes, setNewLoanNotes] = useState('');
+
+  // Repayment Form Dialog state
+  const [isRepayModalOpen, setIsRepayModalOpen] = useState(false);
+  const [repayAmount, setRepayAmount] = useState('');
+  const [repayMethod, setRepayMethod] = useState<'cash' | 'card' | 'bank_transfer'>('cash');
+  const [repayDate, setRepayDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [repayCode, setRepayCode] = useState('');
+  const [repayNotes, setRepayNotes] = useState('');
+
+  // Handle disbursing new loan
+  const handleDisburseLoan = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLoanName.trim()) {
+      alert("Borrower name is required.");
+      return;
+    }
+    const amount = parseFloat(newLoanAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert("Please enter a valid disbursement amount.");
+      return;
+    }
+    const interest = parseFloat(newLoanInterest) || 0;
+    const duration = parseInt(newLoanDuration) || 1;
+
+    const newLoan: LoanRecord = {
+      id: `LOAN-${Date.now().toString().slice(-6)}`,
+      borrowerName: newLoanName,
+      borrowerCategory: newLoanCategory,
+      borrowerId: newLoanId.trim() || undefined,
+      amountDisbursed: amount,
+      interestRate: interest,
+      durationMonths: duration,
+      disbursalDate: newLoanDate,
+      status: 'active',
+      notes: newLoanNotes || 'No specific terms documented.',
+      repayments: []
+    };
+
+    setLoans(prev => [newLoan, ...prev]);
+    setSelectedLoanId(newLoan.id);
+    
+    // Reset Form
+    setNewLoanName('');
+    setNewLoanCategory('staff');
+    setNewLoanId('');
+    setNewLoanAmount('');
+    setNewLoanInterest('0');
+    setNewLoanDuration('6');
+    setNewLoanNotes('');
+    setIsDisburseModalOpen(false);
+
+    // Create Audit Log
+    if (isCloudConnected) {
+      try {
+        const auditId = `AUDIT-LN-${Date.now()}`;
+        setDoc(doc(db, "audit_logs", auditId), {
+          id: auditId,
+          actionType: "CREATE",
+          targetTable: "loans",
+          targetId: newLoan.id,
+          details: `Disbursed loan ledger of INR ${amount} to ${newLoanName} (${newLoanCategory.toUpperCase()})`,
+          operator: profile?.name || "Terminal Accountant",
+          timestamp: Timestamp.now()
+        });
+      } catch (err) {
+        console.warn("Failed to write live Cloud SQL log:", err);
+      }
+    }
+  };
+
+  // Handle Recording repayments
+  const handleRecordRepayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    const activeLoan = loans.find(l => l.id === selectedLoanId);
+    if (!activeLoan) return;
+
+    const amount = parseFloat(repayAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert("Please enter a valid payment amount.");
+      return;
+    }
+
+    const calcTotalExpected = activeLoan.amountDisbursed + (activeLoan.amountDisbursed * (activeLoan.interestRate / 100));
+    const calcAlreadyPaid = activeLoan.repayments.reduce((acc, r) => acc + r.amount, 0);
+    const calcPending = calcTotalExpected - calcAlreadyPaid;
+
+    if (amount > calcPending + 0.1) {
+      alert(`Payment amount INR ${amount} exceeds remaining outstanding balance of INR ${calcPending.toFixed(2)}`);
+      return;
+    }
+
+    const repaymentItem: LoanRepayment = {
+      id: `RPAY-${Date.now().toString().slice(-6)}`,
+      amount: amount,
+      paymentMethod: repayMethod,
+      repaymentDate: repayDate,
+      referenceCode: repayCode.trim() || `REF-${Math.floor(100000 + Math.random() * 900000)}`,
+      notes: repayNotes || 'Standard installment repaid'
+    };
+
+    const updatedRepayments = [...activeLoan.repayments, repaymentItem];
+    const nextPaidTotal = updatedRepayments.reduce((acc, r) => acc + r.amount, 0);
+    const isFullyPaid = nextPaidTotal >= calcTotalExpected - 0.5;
+
+    setLoans(prev => prev.map(l => {
+      if (l.id === activeLoan.id) {
+        return {
+          ...l,
+          status: isFullyPaid ? 'fully_paid' : l.status,
+          repayments: updatedRepayments
+        };
+      }
+      return l;
+    }));
+
+    // Reset Form
+    setRepayAmount('');
+    setRepayCode('');
+    setRepayNotes('');
+    setIsRepayModalOpen(false);
+
+    // Log live audit
+    if (isCloudConnected) {
+      try {
+        const auditId = `AUDIT-LN-RP-${Date.now()}`;
+        setDoc(doc(db, "audit_logs", auditId), {
+          id: auditId,
+          actionType: "UPDATE",
+          targetTable: "loans",
+          targetId: activeLoan.id,
+          details: `Recorded repayment receipt of INR ${amount} for loan ${activeLoan.id}. Outstanding: INR ${(calcPending - amount).toFixed(2)}`,
+          operator: profile?.name || "Terminal Accountant",
+          timestamp: Timestamp.now()
+        });
+      } catch (err) {
+        console.warn("Failed to write live Cloud SQL log:", err);
+      }
+    }
+  };
 
   // Search/Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -402,7 +648,7 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
     }
 
     if (paymentMethod === 'mixed' && Math.abs(amountPaid - cartTotal) > 0.05 && !partialPayment) {
-      alert(`Mixed payment counts do not match total sum. Total Paid: $${amountPaid.toFixed(2)} vs Cart Total: $${cartTotal.toFixed(2)}`);
+      alert(`Mixed payment counts do not match total sum. Total Paid: ₹${amountPaid.toFixed(2)} vs Cart Total: ₹${cartTotal.toFixed(2)}`);
       return;
     }
 
@@ -460,6 +706,49 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
     };
 
     try {
+      // 1. Post to live custom REST server backend to sync with live Azure SQL / Sandbox Memory
+      const restOrderRes = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          id: orderId,
+          customerId: linkedCustomer?.id || "CUST-001",
+          totalAmount: cartTotal,
+          status: "ready", // POS sale is completed instantly
+          notes: cartNotes || "POS Fast Checkout Lane Register",
+          paymentStatus: balanceDue <= 0 ? "paid" : "partially_paid",
+          promisedDate: new Date().toISOString().split('T')[0]
+        })
+      });
+
+      if (!restOrderRes.ok) {
+        console.warn("Failed to log order on REST backend server, proceeding with checkout.");
+      }
+
+      // Post each item to REST backend to trigger auto-deduction, transactions and audit logging
+      for (let idx = 0; idx < cart.length; idx++) {
+        const item = cart[idx];
+        const restItemRes = await fetch('/api/orderitems', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            itemId: `ORI-${orderId}-${idx}`,
+            orderId: orderId,
+            sku: item.product.sku,
+            quantity: item.quantity,
+            unitPrice: item.product.sellingPrice
+          })
+        });
+
+        if (!restItemRes.ok) {
+          console.warn(`Failed to log order item for ${item.product.sku} on REST backend.`);
+        }
+      }
+
       if (isCloudConnected) {
         // Write multi-documents relationally matching firestore security constraints
         await setDoc(doc(db, "orders", orderId), orderDoc);
@@ -514,7 +803,7 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
         balanceDue,
         status: invoiceDoc.status,
         paymentDetails: paymentMethod === 'mixed' 
-          ? `Mixed (Cash: $${mixedCashAmount}, Card: $${mixedCardAmount}, Bank: $${mixedBankAmount})`
+          ? `Mixed (Cash: ₹${mixedCashAmount}, Card: ₹${mixedCardAmount}, Bank: ₹${mixedBankAmount})`
           : paymentMethod.toUpperCase(),
         notes: cartNotes
       };
@@ -634,8 +923,35 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
         </div>
       </div>
 
-      {/* 2. BARCODE PRE-INPUT TRIGGER & CORE WORKFLOW GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Dynamic Bookkeeping Subtab navigation matches Cricket Closet specs */}
+      <div className="flex border-b border-[#e3dec9] gap-6" id="bookkeeping-subtabs">
+        <button
+          onClick={() => setBillingSubTab('checkout')}
+          className={`pb-3 px-1 flex items-center gap-2 border-b-2 text-xs font-mono font-bold uppercase transition-all duration-200 cursor-pointer ${
+            billingSubTab === 'checkout' ? 'border-amber-500 text-neutral-950 font-black' : 'border-transparent text-neutral-400 hover:text-neutral-600'
+          }`}
+        >
+          <ShoppingCart className="w-4 h-4 text-neutral-650" />
+          <span>Point-of-Sale Checkout</span>
+        </button>
+        <button
+          onClick={() => setBillingSubTab('loans')}
+          className={`pb-3 px-1 flex items-center gap-2 border-b-2 text-xs font-mono font-bold uppercase transition-all duration-200 cursor-pointer ${
+            billingSubTab === 'loans' ? 'border-amber-500 text-neutral-950 font-black' : 'border-transparent text-neutral-400 hover:text-neutral-600'
+          }`}
+        >
+          <Wallet className="w-4 h-4 text-neutral-650" />
+          <span>Loans & Advances Ledger</span>
+          <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-red-50 text-red-700 border border-red-100 font-bold font-mono">
+            {loans.filter(l => l.status === 'active').length} Active
+          </span>
+        </button>
+      </div>
+
+      {billingSubTab === 'checkout' && (
+        <>
+          {/* 2. BARCODE PRE-INPUT TRIGGER & CORE WORKFLOW GRID */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* LEFT COLUMN: PRODUCT PICKER & CATALOG GRIDS (SPAN 7) */}
         <div className="lg:col-span-7 space-y-4">
@@ -734,7 +1050,7 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
                     </div>
 
                     <div className="flex items-center justify-between mt-2 pt-1 border-t border-neutral-100 pr-1">
-                      <span className="text-xs font-mono font-bold text-amber-700 font-extrabold">${p.sellingPrice.toFixed(2)}</span>
+                      <span className="text-xs font-mono font-bold text-amber-700 font-extrabold">₹{p.sellingPrice.toFixed(2)}</span>
                       <span className={`text-[10px] font-mono shrink-0 font-bold ${isOutOfStock ? 'text-red-600' : lowStock ? 'text-amber-600' : 'text-neutral-500'}`}>
                         {p.currentStock} left
                       </span>
@@ -912,7 +1228,7 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
 
                         {/* Adjust quantities */}
                         <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-mono font-bold text-neutral-700">${(item.product.sellingPrice * item.quantity).toFixed(2)}</span>
+                          <span className="text-xs font-mono font-bold text-neutral-700">₹{(item.product.sellingPrice * item.quantity).toFixed(2)}</span>
                           <div className="flex items-center gap-2 bg-white border border-neutral-200 rounded px-1.5 py-0.5">
                             <button onClick={() => updateCartQty(item.product.id!, -1)} className="text-[#848279] hover:text-neutral-950">
                               <Minus className="w-3.5 h-3.5" />
@@ -953,7 +1269,7 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
                       onClick={() => { setDiscountType('flat'); setDiscountValue(500); }}
                       className={`py-1 text-[9px] font-bold rounded cursor-pointer ${discountType === 'flat' ? 'bg-neutral-950 text-white font-mono' : 'bg-white border text-neutral-600'}`}
                     >
-                      Flat $500
+                      Flat ₹500
                     </button>
                     <button 
                       onClick={() => { setDiscountType('percent'); setDiscountValue(10); }}
@@ -983,25 +1299,25 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
                 <div className="space-y-1 text-xs font-mono">
                   <div className="flex justify-between text-neutral-500">
                     <span>Retail Subtotal</span>
-                    <span>${cartSubtotal.toFixed(2)}</span>
+                    <span>₹{cartSubtotal.toFixed(2)}</span>
                   </div>
                   {discountType !== 'none' && (
                     <div className="flex justify-between text-emerald-600 font-bold">
                       <span>Discount deduction ({discountType.toUpperCase()})</span>
-                      <span>-${discountAmt.toFixed(2)}</span>
+                      <span>-₹{discountAmt.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-neutral-400 text-[10px]">
                     <span>CGST (9.0%)</span>
-                    <span>+${cgst.toFixed(2)}</span>
+                    <span>+₹{cgst.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-neutral-400 text-[10px]">
                     <span>SGST (9.0%)</span>
-                    <span>+${sgst.toFixed(2)}</span>
+                    <span>+₹{sgst.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-neutral-950 text-sm font-black border-t border-dashed border-neutral-200 pt-1.5 font-mono">
                     <span>Total Tax Inc</span>
-                    <span className="text-amber-700 font-extrabold">${cartTotal.toFixed(2)}</span>
+                    <span className="text-amber-700 font-extrabold">₹{cartTotal.toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -1063,7 +1379,7 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
                         />
                       </div>
                       <div className="col-span-3 text-[9px] text-right text-[#848279] mt-1 pt-1 border-t">
-                        Sum allocated: <strong className="text-amber-700">${amountPaid.toFixed(2)}</strong> / total ${cartTotal.toFixed(2)}
+                        Sum allocated: <strong className="text-amber-700">₹{amountPaid.toFixed(2)}</strong> / total ₹{cartTotal.toFixed(2)}
                       </div>
                     </div>
                   )}
@@ -1099,7 +1415,7 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
 
                   {partialPayment && balanceDue > 0 && (
                     <div className="text-[9.5px] font-mono text-red-600 text-right">
-                      Will write outstanding balance: <strong>${balanceDue.toFixed(2)}</strong> to CRM invoice
+                      Will write outstanding balance: <strong>₹{balanceDue.toFixed(2)}</strong> to CRM invoice
                     </div>
                   )}
                 </div>
@@ -1135,6 +1451,18 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
         </div>
 
       </div>
+        </>
+      )}
+
+      {billingSubTab === 'loans' && (
+        <LoansAdvancesView 
+          branchScope={branchScope} 
+          profile={profile} 
+          customers={customers} 
+          loans={loans}
+          setLoans={setLoans}
+        />
+      )}
 
       {/* 3. CASHBOOK FLOATS DRAWER MODULE */}
       <AnimatePresence>
@@ -1159,24 +1487,24 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
               <div className="bg-[#FAF9F5] p-3 rounded-xl border border-[#e3dec9] text-xs font-mono space-y-1.5">
                 <div className="flex justify-between">
                   <span>Register Opening Float</span>
-                  <span className="font-bold">${startingFloat.toFixed(2)}</span>
+                  <span className="font-bold">₹{startingFloat.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-green-700">
                   <span>Total Cash Collected (Sales)</span>
                   <span className="font-bold">
-                    +${recentTransactions.reduce((acc, t) => t.paymentMethod === 'cash' && t.type === 'credit' ? acc + t.amount : acc, 0).toFixed(2)}
+                    +₹{recentTransactions.reduce((acc, t) => t.paymentMethod === 'cash' && t.type === 'credit' ? acc + t.amount : acc, 0).toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between text-red-600">
                   <span>Logged Expense Debits</span>
                   <span className="font-bold">
-                    -${(cashbookExpenses.reduce((acc, t) => acc + t.amount, 0) + recentTransactions.reduce((acc, t) => t.paymentMethod === 'cash' && t.type === 'debit' ? acc + t.amount : acc, 0)).toFixed(2)}
+                    -₹{(cashbookExpenses.reduce((acc, t) => acc + t.amount, 0) + recentTransactions.reduce((acc, t) => t.paymentMethod === 'cash' && t.type === 'debit' ? acc + t.amount : acc, 0)).toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between border-t border-dashed border-neutral-350 pt-1.5 text-sm font-black text-neutral-950">
                   <span>System Safe Reserve Balance</span>
                   <span className="text-amber-700 font-extrabold">
-                    +${(startingFloat + recentTransactions.reduce((acc, t) => {
+                    +₹{(startingFloat + recentTransactions.reduce((acc, t) => {
                       if (t.paymentMethod === 'cash') {
                         return t.type === 'credit' ? acc + t.amount : acc - t.amount;
                       }
@@ -1191,7 +1519,7 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
                 <span className="text-[10px] font-mono text-[#848279] uppercase block font-bold border-b pb-1">Register Operational Expense Doc</span>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] text-[#848279] font-mono">Amount Debit ($)</label>
+                    <label className="text-[10px] text-[#848279] font-mono">Amount Debit (₹)</label>
                     <input 
                       type="number" 
                       required
@@ -1245,7 +1573,7 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
                 {recentTransactions.filter(t => t.paymentMethod === 'cash').map(cf => (
                   <div key={cf.id} className="flex justify-between text-[11px] font-mono p-1 border-b">
                     <span className={cf.type === 'credit' ? 'text-green-600' : 'text-red-505'}>
-                      {cf.type === 'credit' ? '+' : '-'}${cf.amount.toFixed(2)}
+                      {cf.type === 'credit' ? '+' : '-'}₹{cf.amount.toFixed(2)}
                     </span>
                     <span className="text-neutral-400">POS Sales {cf.type} - Cash register</span>
                   </div>
@@ -1396,7 +1724,7 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
                           {item.notes && <span className="text-[9px] text-[#848279] italic">*{item.notes}</span>}
                         </div>
                         <span className="col-span-2 text-center text-neutral-800">x{item.quantity}</span>
-                        <span className="col-span-4 text-right font-bold">${(item.product.sellingPrice * item.quantity).toFixed(2)}</span>
+                        <span className="col-span-4 text-right font-bold">₹{(item.product.sellingPrice * item.quantity).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
@@ -1405,34 +1733,34 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
                 <div className="border-t border-dashed border-neutral-350 pt-2 space-y-1 text-[10.5px] text-right">
                   <div className="flex justify-between">
                     <span className="text-[#848279]">Catalogue Subtotal:</span>
-                    <span>${activeInvoice.subtotal.toFixed(2)}</span>
+                    <span>₹{activeInvoice.subtotal.toFixed(2)}</span>
                   </div>
                   {activeInvoice.discount > 0 && (
                     <div className="flex justify-between text-emerald-600 font-bold">
                       <span>Adjustment Discount:</span>
-                      <span>-${activeInvoice.discount.toFixed(2)}</span>
+                      <span>-₹{activeInvoice.discount.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-neutral-400 text-[10px]">
                     <span>CGST (9.0%):</span>
-                    <span>+${activeInvoice.cgst.toFixed(2)}</span>
+                    <span>+₹{activeInvoice.cgst.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-neutral-400 text-[10px]">
                     <span>SGST (9.0%):</span>
-                    <span>+${activeInvoice.sgst.toFixed(2)}</span>
+                    <span>+₹{activeInvoice.sgst.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-black text-sm text-neutral-950 pt-1.5 border-t border-neutral-250 font-mono">
                     <span>GRAND PAY TOTAL:</span>
-                    <span className="text-[#E5B84B]">${activeInvoice.total.toFixed(2)}</span>
+                    <span className="text-[#E5B84B]">₹{activeInvoice.total.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-[11px] text-neutral-600">
                     <span>Payment Received:</span>
-                    <span className="font-bold text-neutral-800">${activeInvoice.amountPaid.toFixed(2)}</span>
+                    <span className="font-bold text-neutral-800">₹{activeInvoice.amountPaid.toFixed(2)}</span>
                   </div>
                   {activeInvoice.balanceDue > 0 && (
                     <div className="flex justify-between text-[11px] text-red-600 font-bold">
                       <span>Outstanding Bal Due:</span>
-                      <span>${activeInvoice.balanceDue.toFixed(2)}</span>
+                      <span>₹{activeInvoice.balanceDue.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="text-[9.5px] text-left text-neutral-500 pt-1">
@@ -1501,10 +1829,18 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
                 
                 {/* PDF Header Logo & Meta columns */}
                 <div className="flex justify-between items-start">
-                  <div className="space-y-1.5 text-left">
-                    <span className="text-[11px] font-black tracking-widest text-[#E5B84B] font-mono select-none px-2 py-0.5 bg-neutral-950 inline-block uppercase">TALK OF THE TOWN CRICKET CLOSET</span>
-                    <h2 className="text-xl font-sans font-black tracking-tight text-neutral-950 leading-none">TAX INVOICE / RECONCILIATION</h2>
-                    <p className="text-[10px] text-neutral-500 max-w-xs leading-normal">Premium English Willow fabrication, digital sublimated layouts, sports armor customized specs.</p>
+                  <div className="flex gap-4 items-start text-left">
+                    <img 
+                      src={brandLogo} 
+                      alt="Brand Logo" 
+                      className="w-12 h-12 object-cover rounded-lg border border-neutral-200 shrink-0" 
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-black tracking-widest text-[#E5B84B] font-mono select-none px-2 py-0.5 bg-neutral-950 inline-block uppercase">TALK OF THE TOWN CRICKET CLOSET</span>
+                      <h2 className="text-xl font-sans font-black tracking-tight text-neutral-950 leading-none">TAX INVOICE / RECONCILIATION</h2>
+                      <p className="text-[10px] text-neutral-500 max-w-xs leading-normal">Premium English Willow fabrication, digital sublimated layouts, sports armor customized specs.</p>
+                    </div>
                   </div>
 
                   <div className="text-right space-y-1 text-xs font-mono">
@@ -1554,9 +1890,9 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
                           <span className="text-[9.5px] text-[#848279] font-mono">SKU: {item.product.sku} | Barcode: {item.product.barcode}</span>
                           {item.notes && <span className="text-[9.5px] text-amber-800 font-mono italic">Custom detail: {item.notes}</span>}
                         </div>
-                        <span className="col-span-2 text-right font-mono">${item.product.sellingPrice.toFixed(2)}</span>
+                        <span className="col-span-2 text-right font-mono">₹{item.product.sellingPrice.toFixed(2)}</span>
                         <span className="col-span-1 text-center font-mono font-bold">x{item.quantity}</span>
-                        <span className="col-span-3 text-right font-mono font-bold">${(item.product.sellingPrice * item.quantity).toFixed(2)}</span>
+                        <span className="col-span-3 text-right font-mono font-bold">₹{(item.product.sellingPrice * item.quantity).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
@@ -1582,34 +1918,34 @@ export const BillingPOSView: React.FC<BillingPOSViewProps> = ({ branchScope, pro
                   <div className="col-span-6 space-y-1.5 text-right font-mono text-[11px]">
                     <div className="flex justify-between">
                       <span className="text-[#848279]">Catalogue gross net:</span>
-                      <span>${activeInvoice.subtotal.toFixed(2)}</span>
+                      <span>₹{activeInvoice.subtotal.toFixed(2)}</span>
                     </div>
                     {activeInvoice.discount > 0 && (
                       <div className="flex justify-between text-emerald-600 font-bold">
                         <span>Corporate adjustment disc:</span>
-                        <span>-${activeInvoice.discount.toFixed(2)}</span>
+                        <span>-₹{activeInvoice.discount.toFixed(2)}</span>
                       </div>
                     )}
                     <div className="flex justify-between text-neutral-450 text-[10px]">
                       <span>Federal Central GST (CGST 9.0%):</span>
-                      <span>+${activeInvoice.cgst.toFixed(2)}</span>
+                      <span>+₹{activeInvoice.cgst.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-neutral-450 text-[10px]">
                       <span>State and Territorial GST (SGST 9.0%):</span>
-                      <span>+${activeInvoice.sgst.toFixed(2)}</span>
+                      <span>+₹{activeInvoice.sgst.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between font-black text-sm text-neutral-950 pt-1.5 border-t border-neutral-250 select-all font-mono">
                       <span>CLIENT TOTAL ASSESSED:</span>
-                      <span className="text-amber-700 font-extrabold">${activeInvoice.total.toFixed(2)}</span>
+                      <span className="text-amber-700 font-extrabold">₹{activeInvoice.total.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between border-t border-neutral-100 pt-1">
                       <span>Total Payment Received:</span>
-                      <span className="font-extrabold text-neutral-900">${activeInvoice.amountPaid.toFixed(2)}</span>
+                      <span className="font-extrabold text-neutral-900">₹{activeInvoice.amountPaid.toFixed(2)}</span>
                     </div>
                     {activeInvoice.balanceDue > 0 && (
                       <div className="flex justify-between text-red-655 font-bold">
                         <span>Balance Debit Due:</span>
-                        <span>${activeInvoice.balanceDue.toFixed(2)}</span>
+                        <span>₹{activeInvoice.balanceDue.toFixed(2)}</span>
                       </div>
                     )}
                   </div>

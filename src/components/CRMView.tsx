@@ -210,102 +210,67 @@ export function CRMView({ branchScope, profile, customers: appCustomers, setCust
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- BOOTSTRAP / FIRESTORE REALTIME SYNC ENGINE ---
-  useEffect(() => {
-    let unsubscribeCustomers = () => {};
-    let unsubscribeTeams = () => {};
+  const fetchCustomersFromAzure = async () => {
+    setIsSyncing(true);
+    try {
+      const response = await fetch('/api/customers');
+      if (response.ok) {
+        const fetched = await response.json();
+        const mappedFetched = fetched.map((row: any) => ({
+          id: row.id,
+          name: row.name,
+          email: row.email,
+          phone: row.phone || 'N/A',
+          address: row.address || 'N/A',
+          gstDetails: row.gstDetails || 'Unregistered',
+          type: row.type || (row.affiliation === 'Academy' ? 'school' : row.affiliation === 'Club Team' ? 'team' : 'individual'),
+          notes: row.notes || 'No notes',
+          branch: row.branch || row.branchId || 'Melbourne',
+          activeOrders: row.activeOrders || 0,
+          createdAt: row.createdAt || new Date().toISOString(),
+          updatedAt: row.updatedAt || new Date().toISOString(),
+          activityLog: row.activityLog || []
+        }));
 
-    if (isCloudConnected) {
-      setIsSyncing(true);
-      try {
-        // Core realtime query for customers
-        const qCustomers = query(collection(db, 'customers'));
-        unsubscribeCustomers = onSnapshot(qCustomers, (snapshot) => {
-          const fetched: CRMCustomer[] = [];
-          snapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-            fetched.push({
-              id: docSnap.id,
-              name: data.name || '',
-              email: data.email || '',
-              phone: data.phone || '',
-              address: typeof data.address === 'string' ? data.address : (data.address?.line1 || ''),
-              gstDetails: data.gstDetails || '',
-              type: data.type || (data.affiliation === 'Academy' ? 'school' : data.affiliation === 'Club Team' ? 'team' : 'individual'),
-              notes: data.notes || '',
-              branch: data.branch || data.branchId || 'Melbourne',
-              activeOrders: data.activeOrders || 0,
-              createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : (data.createdAt || new Date().toISOString()),
-              updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : (data.updatedAt || new Date().toISOString()),
-              activityLog: data.activityLog || []
-            });
-          });
-
-          // Bootstrap placeholders if Firestore collection is initially completely empty
-          if (fetched.length === 0) {
-            seedInitialFirestoreData();
-          } else {
-            setLocalCustomers(fetched);
-            // Synchronize with parent app's dropdown customer options
-            const mappedForApp = fetched.map(c => ({
-              id: c.id,
-              name: c.name,
-              email: c.email,
-              phone: c.phone,
-              affiliation: c.type === 'school' ? 'Academy' : c.type === 'team' ? 'Club Team' : 'Individual Athlete',
-              activeOrders: c.activeOrders,
-              branch: c.branch,
-              address: c.address
-            }));
-            setAppCustomers(mappedForApp);
-          }
-          setIsSyncing(false);
-        }, (error) => {
-          handleFirestoreError(error, OperationType.GET, 'customers');
-          setIsSyncing(false);
-        });
-
-        // Teams subscription
-        const qTeams = query(collection(db, 'teams'));
-        unsubscribeTeams = onSnapshot(qTeams, (snapshot) => {
-          const fetchedTeams: CRMTeam[] = [];
-          snapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-            fetchedTeams.push({
-              id: docSnap.id,
-              name: data.name || '',
-              logo: data.logo || '',
-              coach: data.coach || data.contactPerson || '',
-              athletesCount: data.athletesCount || 0,
-              sponsor: data.sponsor || '',
-              preferredColors: data.preferredColors || [],
-              previousOrders: data.previousOrders || [],
-              customerId: data.customerId || '',
-              players: data.players || [],
-              branchId: data.branchId || 'Melbourne',
-              createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : (data.createdAt || new Date().toISOString()),
-              updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : (data.updatedAt || new Date().toISOString())
-            });
-          });
-          setLocalTeams(fetchedTeams);
-        }, (error) => {
-          handleFirestoreError(error, OperationType.GET, 'teams');
-        });
-
-      } catch (err) {
-        console.error("Firestore sync setup error", err);
-        setErrorBanner("Unable to set up realtime Cloud CRM listeners. Running high-integrity offline cache mode.");
+        setLocalCustomers(mappedFetched);
+        // Synchronize with parent app's dropdown customer options
+        const mappedForApp = mappedFetched.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          email: c.email,
+          phone: c.phone,
+          affiliation: c.type === 'school' ? 'Academy' : c.type === 'team' ? 'Club Team' : 'Individual Athlete',
+          activeOrders: c.activeOrders,
+          branch: c.branch,
+          address: c.address
+        }));
+        setAppCustomers(mappedForApp);
+      } else {
+        console.warn("REST Customers fetch failed, falling back to local cache.");
         loadLocalCacheFallback();
-        setIsSyncing(false);
+      }
+    } catch (err) {
+      console.error("Customers REST Fetch error:", err);
+      loadLocalCacheFallback();
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomersFromAzure();
+
+    // Teams are kept in local storage fallback
+    const cachedTeams = localStorage.getItem('erp_crm_teams');
+    if (cachedTeams) {
+      try {
+        setLocalTeams(JSON.parse(cachedTeams));
+      } catch (err) {
+        setLocalTeams([]);
       }
     } else {
-      // Offline Local Storage sync
-      loadLocalCacheFallback();
+      setLocalTeams([]);
     }
-
-    return () => {
-      unsubscribeCustomers();
-      unsubscribeTeams();
-    };
   }, [branchScope]);
 
   // Seeding backup data to Firestore to guarantee smooth first interactions
@@ -313,13 +278,13 @@ export function CRMView({ branchScope, profile, customers: appCustomers, setCust
     const defaultData: CRMCustomer[] = [
       {
         id: "CUST-001",
-        name: "Victorian Cricket Academy",
-        email: "info@viccricket.org",
-        phone: "+61 3 9653 1100",
-        address: "86 Jolimont St, East Melbourne VIC 3002",
-        gstDetails: "GST-VIC995180",
+        name: "Manipur Cricket Academy (Imphal)",
+        email: "info@manipurcricketacademy.org.in",
+        phone: "+91 385 244 1011",
+        address: "Khuman Lampak Sports Complex, Imphal East, Manipur 795001",
+        gstDetails: "GST-MNP995180",
         type: "school",
-        notes: "Major academy representing junior and collegiate squads across Victoria.",
+        notes: "Major academy representing junior and collegiate squads across Manipur.",
         branch: "Melbourne",
         activeOrders: 3,
         createdAt: new Date().toISOString(),
@@ -330,11 +295,11 @@ export function CRMView({ branchScope, profile, customers: appCustomers, setCust
       },
       {
         id: "CUST-002",
-        name: "Melton Cobras CC",
-        email: "contact@meltoncobras.com.au",
-        phone: "+61 3 9743 4200",
-        address: "123 Coburns Rd, Melton VIC 3337",
-        gstDetails: "GST-MEL882103",
+        name: "Imphal Eastern Youth Sports Club",
+        email: "info@imphaleasternclub.com",
+        phone: "+91 385 244 2221",
+        address: "Sajiwa Sports Arena, Imphal East, Manipur 795114",
+        gstDetails: "GST-MNP882103",
         type: "team",
         notes: "Affiliated local club with senior and A-grade rosters.",
         branch: "Melbourne",
@@ -347,10 +312,10 @@ export function CRMView({ branchScope, profile, customers: appCustomers, setCust
       },
       {
         id: "CUST-003",
-        name: "Stuart Broad (Refurb)",
-        email: "stuart@broadglove.co.uk",
-        phone: "+44 7700 900077",
-        address: "15 Trent Bridge Lane, Nottingham",
+        name: "Chungkham Singh (Refurb)",
+        email: "chungkham@manipurathletics.org.in",
+        phone: "+91 385 998 8111",
+        address: "Singjamei Thokchom Leikai, Imphal West, Manipur 795008",
         gstDetails: "Personal Account",
         type: "individual",
         notes: "Premium level client representing elite bat configurations and sizing specifications.",
@@ -367,37 +332,37 @@ export function CRMView({ branchScope, profile, customers: appCustomers, setCust
     const defaultTeams: CRMTeam[] = [
       {
         id: "TEAM-001",
-        name: "Cobras CC A-Division",
+        name: "Imphal Eastern Sports Division",
         logo: PRESET_MASCOTS[5].icon,
-        coach: "Brian Lehmann",
+        coach: "Tomba Singh",
         athletesCount: 15,
-        sponsor: "Carlton & United Breweries",
+        sponsor: "Manipur Sports Directorate",
         preferredColors: ["#1e293b", "#e5b84b", "#ffffff"],
         previousOrders: ["ORD-2026-9502"],
         customerId: "CUST-002",
         branchId: "Melbourne",
         players: [
-          { name: "Rohit Sharma", jerseyNumber: "13", jerseySize: "XL", pantsSize: "XL", notes: "Prefers wider sleeve cuffs on team kit" },
-          { name: "George Bailey", jerseyNumber: "32", jerseySize: "L", pantsSize: "XL", notes: "Extra high collars" },
-          { name: "Pat Cummins", jerseyNumber: "30", jerseySize: "XL", pantsSize: "L", notes: "Pants custom length hem +5cm" }
+          { name: "S. Ibomcha Singh", jerseyNumber: "13", jerseySize: "XL", pantsSize: "XL", notes: "Prefers wider sleeve cuffs on team kit" },
+          { name: "Laishram Singh", jerseyNumber: "32", jerseySize: "L", pantsSize: "XL", notes: "Extra high collars" },
+          { name: "N. Ranbir Singh", jerseyNumber: "30", jerseySize: "XL", pantsSize: "L", notes: "Pants custom length hem +5cm" }
         ],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
       {
         id: "TEAM-002",
-        name: "Academy Colts Under-19",
+        name: "MCA Colts Under-19",
         logo: PRESET_MASCOTS[6].icon,
-        coach: "Dave Hussey",
+        coach: "Biren Singh",
         athletesCount: 18,
-        sponsor: "Victorian Local Council",
+        sponsor: "Imphal Municipal Council",
         preferredColors: ["#16a34a", "#f59e0b"],
         previousOrders: ["ORD-2026-9501"],
         customerId: "CUST-001",
         branchId: "Melbourne",
         players: [
-          { name: "Marcus Harris", jerseyNumber: "14", jerseySize: "M", pantsSize: "M", notes: "Wears standard sizing" },
-          { name: "Jake Fraser", jerseyNumber: "88", jerseySize: "S", pantsSize: "S", notes: "Sublimation name curve requested" }
+          { name: "Nando Singh", jerseyNumber: "14", jerseySize: "M", pantsSize: "M", notes: "Wears standard sizing" },
+          { name: "Kh. Gautam", jerseyNumber: "88", jerseySize: "S", pantsSize: "S", notes: "Sublimation name curve requested" }
         ],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -432,69 +397,74 @@ export function CRMView({ branchScope, profile, customers: appCustomers, setCust
     const cacheCustomers = localStorage.getItem('crm_local_customers');
     const cacheTeams = localStorage.getItem('crm_local_teams');
 
+    const bootstrapC = [
+      {
+        id: "CUST-001",
+        name: "Manipur Cricket Academy (Imphal)",
+        email: "info@manipurcricketacademy.org.in",
+        phone: "+91 385 244 1011",
+        address: "Khuman Lampak Sports Complex, Imphal East, Manipur 795001",
+        gstDetails: "GST-MNP995180",
+        type: "school" as const,
+        notes: "Major academy representing junior and collegiate squads across Manipur.",
+        branch: branchScope || "Melbourne",
+        activeOrders: 3,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        activityLog: [
+          { id: 'act-1', type: 'Creation', message: 'Profile set up atomically', timestamp: new Date().toISOString(), staffName: 'System Handshake' }
+        ]
+      },
+      {
+        id: "CUST-002",
+        name: "Imphal Eastern Youth Sports Club",
+        email: "info@imphaleasternclub.com",
+        phone: "+91 385 244 2221",
+        address: "Sajiwa Sports Arena, Imphal East, Manipur 795114",
+        gstDetails: "GST-MNP882103",
+        type: "team" as const,
+        notes: "Affiliated local club with senior and A-grade rosters.",
+        branch: branchScope || "Melbourne",
+        activeOrders: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        activityLog: [
+          { id: 'act-1', type: 'Creation', message: 'Profile set up atomically', timestamp: new Date().toISOString(), staffName: 'System Handshake' }
+        ]
+      }
+    ];
+
+    const bootstrapT = [
+      {
+        id: "TEAM-001",
+        name: "Imphal Eastern Under-21",
+        logo: "🐍",
+        coach: "Tomba Singh",
+        athletesCount: 15,
+        sponsor: "Imphal Sports League",
+        preferredColors: ["#1e293b", "#e5b84b"],
+        previousOrders: ["ORD-2026-9502"],
+        customerId: "CUST-002",
+        branchId: branchScope || "Melbourne",
+        players: [
+          { name: "S. Ibomcha Singh", jerseyNumber: "13", jerseySize: "XL", pantsSize: "XL", notes: "Wider sleeve cuffs preferred" },
+          { name: "Laishram Singh", jerseyNumber: "30", jerseySize: "XL", pantsSize: "L", notes: "Extra long trousers +5cm Custom" }
+        ],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ];
+
     if (cacheCustomers && cacheTeams) {
-      setLocalCustomers(JSON.parse(cacheCustomers));
-      setLocalTeams(JSON.parse(cacheTeams));
+      try {
+        setLocalCustomers(JSON.parse(cacheCustomers));
+        setLocalTeams(JSON.parse(cacheTeams));
+      } catch (e) {
+        console.error("Failed to parse cached CRM customers/teams:", e);
+        setLocalCustomers(bootstrapC);
+        setLocalTeams(bootstrapT);
+      }
     } else {
-      // Default offline datasets
-      const bootstrapC = [
-        {
-          id: "CUST-001",
-          name: "Victorian Cricket Academy",
-          email: "info@viccricket.org",
-          phone: "+61 3 9653 1100",
-          address: "86 Jolimont St, East Melbourne VIC 3002",
-          gstDetails: "GST-VIC995180",
-          type: "school" as const,
-          notes: "Major academy representing junior and collegiate squads across Victoria.",
-          branch: branchScope || "Melbourne",
-          activeOrders: 3,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          activityLog: [
-            { id: 'act-1', type: 'Creation', message: 'Profile set up atomically', timestamp: new Date().toISOString(), staffName: 'System Handshake' }
-          ]
-        },
-        {
-          id: "CUST-002",
-          name: "Melton Cobras CC",
-          email: "contact@meltoncobras.com.au",
-          phone: "+61 3 9743 4200",
-          address: "123 Coburns Rd, Melton VIC 3337",
-          gstDetails: "GST-MEL882103",
-          type: "team" as const,
-          notes: "Affiliated local club with senior and A-grade rosters.",
-          branch: branchScope || "Melbourne",
-          activeOrders: 1,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          activityLog: [
-            { id: 'act-1', type: 'Creation', message: 'Profile set up atomically', timestamp: new Date().toISOString(), staffName: 'System Handshake' }
-          ]
-        }
-      ];
-
-      const bootstrapT = [
-        {
-          id: "TEAM-001",
-          name: "Cobras CC Under-21",
-          logo: "🐍",
-          coach: "Brian Lehmann",
-          athletesCount: 15,
-          sponsor: "CUB Beverage Group",
-          preferredColors: ["#1e293b", "#e5b84b"],
-          previousOrders: ["ORD-2026-9502"],
-          customerId: "CUST-002",
-          branchId: branchScope || "Melbourne",
-          players: [
-            { name: "Rohit Sharma", jerseyNumber: "13", jerseySize: "XL", pantsSize: "XL", notes: "Wider sleeve cuffs preferred" },
-            { name: "Pat Cummins", jerseyNumber: "30", jerseySize: "XL", pantsSize: "L", notes: "Extra long trousers +5cm Custom" }
-          ],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-
       setLocalCustomers(bootstrapC);
       setLocalTeams(bootstrapT);
       saveToLocalCache(bootstrapC, bootstrapT);
@@ -524,16 +494,25 @@ export function CRMView({ branchScope, profile, customers: appCustomers, setCust
 
     const updatedLogs = [newLogItem, ...(targetCustomer.activityLog || [])].slice(0, 50); // limit to 50 entries
     
-    if (isCloudConnected) {
-      try {
-        await updateDoc(doc(db, 'customers', customerId), {
+    try {
+      const response = await fetch(`/api/customers/${customerId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...targetCustomer,
           activityLog: updatedLogs,
-          updatedAt: Timestamp.now()
-        });
-      } catch (err) {
-        handleFirestoreError(err, OperationType.UPDATE, `customers/${customerId}`);
+          updatedAt: new Date().toISOString()
+        })
+      });
+      if (response.ok) {
+        await fetchCustomersFromAzure();
+      } else {
+        const updatedList = customers.map(c => c.id === customerId ? { ...c, activityLog: updatedLogs, updatedAt: new Date().toISOString() } : c);
+        setLocalCustomers(updatedList);
+        saveToLocalCache(updatedList, teams);
       }
-    } else {
+    } catch (err) {
+      console.error("Failed logCustomerActivity:", err);
       const updatedList = customers.map(c => c.id === customerId ? { ...c, activityLog: updatedLogs, updatedAt: new Date().toISOString() } : c);
       setLocalCustomers(updatedList);
       saveToLocalCache(updatedList, teams);
@@ -566,17 +545,21 @@ export function CRMView({ branchScope, profile, customers: appCustomers, setCust
       ]
     };
 
-    if (isCloudConnected) {
-      try {
-        await setDoc(doc(db, 'customers', newId), {
-          ...customerObj,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now()
-        });
-      } catch (err) {
-        handleFirestoreError(err, OperationType.CREATE, `customers/${newId}`);
+    try {
+      const response = await fetch('/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(customerObj)
+      });
+      if (response.ok) {
+        await fetchCustomersFromAzure();
+      } else {
+        const updatedList = [customerObj, ...customers];
+        setLocalCustomers(updatedList);
+        saveToLocalCache(updatedList, teams);
       }
-    } else {
+    } catch (err) {
+      console.error("Error creating customer:", err);
       const updatedList = [customerObj, ...customers];
       setLocalCustomers(updatedList);
       saveToLocalCache(updatedList, teams);
@@ -741,13 +724,19 @@ export function CRMView({ branchScope, profile, customers: appCustomers, setCust
       return;
     }
 
-    if (isCloudConnected) {
-      try {
-        await deleteDoc(doc(db, 'customers', id));
-      } catch (err) {
-        handleFirestoreError(err, OperationType.DELETE, `customers/${id}`);
+    try {
+      const response = await fetch(`/api/customers/${id}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        await fetchCustomersFromAzure();
+      } else {
+        const updatedList = customers.filter(c => c.id !== id);
+        setLocalCustomers(updatedList);
+        saveToLocalCache(updatedList, teams);
       }
-    } else {
+    } catch (err) {
+      console.error("Failed to delete customer:", err);
       const updatedList = customers.filter(c => c.id !== id);
       setLocalCustomers(updatedList);
       saveToLocalCache(updatedList, teams);
@@ -1520,7 +1509,7 @@ export function CRMView({ branchScope, profile, customers: appCustomers, setCust
                   <input 
                     type="text" 
                     required
-                    placeholder="e.g. Victorian Cricket Academy"
+                    placeholder="e.g. Manipur Cricket Academy (Imphal)"
                     value={newCustomerForm.name}
                     onChange={(e) => setNewCustomerForm(prev => ({ ...prev, name: e.target.value }))}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#E5B84B]"

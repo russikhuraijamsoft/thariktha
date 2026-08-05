@@ -512,7 +512,7 @@ class ERPIntegrationService {
 
     // 4. POS Ledger: Register outstanding Billing Invoice
     const invoiceId = `INV-2026-X${Math.floor(10 + Math.random() * 89)}`;
-    this.logTelemetry(`FINANCE: Logging invoice ${invoiceId} for $${finalPrice.toFixed(2)} with net 15 due terms.`, 'syncing');
+    this.logTelemetry(`FINANCE: Logging invoice ${invoiceId} for ₹${finalPrice.toFixed(2)} with net 15 due terms.`, 'syncing');
     
     const newInvoice: ERPInvoice = {
       id: invoiceId,
@@ -710,7 +710,7 @@ class ERPIntegrationService {
     this.triggerUnifiedNotification({
       id: `NOT-PAY-${txnId}`,
       title: "Balance Credit Received",
-      message: `Sentry verified: Confirmed deposits of $${paymentDetails.payAmount} matching billing Invoice ${paymentDetails.invoiceId}. Reference: ${paymentDetails.reference}.`,
+      message: `Sentry verified: Confirmed deposits of ₹${paymentDetails.payAmount} matching billing Invoice ${paymentDetails.invoiceId}. Reference: ${paymentDetails.reference}.`,
       type: "payment_alert"
     });
 

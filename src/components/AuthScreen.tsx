@@ -20,9 +20,10 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import brandLogo from '../assets/images/talk_of_the_town_logo_1780894452079.png';
 
 export const AuthScreen: React.FC = () => {
-  const { login, register, resetPassword, loginWithGoogle, isSandboxMode } = useAuth();
+  const { login, register, resetPassword, loginWithGoogle, isSandboxMode, setIsSandboxMode, quickSandboxLogin } = useAuth();
   
   const [isLoginView, setIsLoginView] = useState<boolean>(true);
   const [isResetView, setIsResetView] = useState<boolean>(false);
@@ -41,17 +42,24 @@ export const AuthScreen: React.FC = () => {
   const CREDENTIAL_PRESETS = [
     { email: 'super_admin_guru@cricketcloset.com', role: 'Super Admin', pass: 'admin123', label: 'Super Admin' },
     { email: 'melbourne_mgr@cricketcloset.com', role: 'Branch Manager', pass: 'manager123', label: 'Branch Manager' },
-    { email: 'craftsman_sharma@cricketcloset.com', role: 'Craftsman Group', pass: 'craftsman123', label: 'Manufacturing Staff' },
+    { email: 'craftsman_sharma@cricketcloset.com', role: 'Craftsman Group', pass: 'craftsman123', label: 'Manufacturing' },
     { email: 'printer_sarah@cricketcloset.com', role: 'Silkscreen Pro', pass: 'printer123', label: 'Printing Staff' },
     { email: 'cashier_clara@cricketcloset.com', role: 'Audit Ledger', pass: 'cashier123', label: 'Cashier' },
-    { email: 'inventory_kane@cricketcloset.com', role: 'Stock Manager', pass: 'inventory123', label: 'Inventory Manager' }
+    { email: 'inventory_kane@cricketcloset.com', role: 'Stock Manager', pass: 'inventory123', label: 'Inventory' }
   ];
 
-  const handleApplyPreset = (emailVal: string, passVal: string) => {
+  const handleApplyPreset = async (emailVal: string, passVal: string) => {
     setEmail(emailVal);
     setPassword(passVal);
     setErrorMsg(null);
-    setSuccessMsg(`Preset credentials copied. Click 'Authenticate Securely' below.`);
+    setLocalLoading(true);
+    try {
+      await login(emailVal, passVal);
+    } catch (e: any) {
+      setErrorMsg(e.message || "An authentication error occurred.");
+    } finally {
+      setLocalLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,22 +87,45 @@ export const AuthScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 flex flex-col md:flex-row items-center justify-center p-4 lg:p-8 font-sans antialiased text-neutral-100 selection:bg-amber-500 selection:text-neutral-900" id="auth-grid-split">
+    <div className="min-h-screen bg-neutral-950 flex flex-col md:flex-row items-center justify-center p-4 lg:p-8 font-sans antialiased text-neutral-100 selection:bg-amber-500 selection:text-neutral-900 relative overflow-hidden" id="auth-grid-split">
       
+      {/* Ambient brand watermark layer */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.03] flex items-center justify-center z-0 scale-110 select-none">
+        <img 
+          src={brandLogo} 
+          alt="Watermark Background" 
+          className="w-full h-full object-cover filter blur-[1px]"
+          referrerPolicy="no-referrer"
+        />
+      </div>
+
       {/* Dynamic left branding card */}
-      <div className="w-full md:w-1/2 p-6 lg:p-12 space-y-6 flex flex-col justify-between self-stretch bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-950 border border-neutral-800 rounded-2xl md:rounded-r-none md:border-r-0 md:rounded-l-2xl shadow-xl md:shadow-none min-h-[400px] md:min-h-0">
+      <div className="w-full md:w-1/2 p-6 lg:p-12 space-y-6 flex flex-col justify-between self-stretch bg-gradient-to-br from-neutral-900/90 via-neutral-950/95 to-neutral-950/95 border border-neutral-800/80 rounded-2xl md:rounded-r-none md:border-r-0 md:rounded-l-2xl shadow-xl md:shadow-none min-h-[400px] md:min-h-0 relative z-10">
         
         {/* Dynamic Header */}
         <div className="flex items-center gap-4">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center text-neutral-950">
-            <Trophy className="w-5.5 h-5.5 stroke-[2.5]" />
-          </div>
+          <img 
+            src={brandLogo} 
+            alt="Logo Icon" 
+            className="w-11 h-11 rounded-xl object-cover border border-neutral-850 shadow shadow-amber-500/10 shrink-0"
+            referrerPolicy="no-referrer"
+          />
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-[9px] font-mono tracking-widest text-amber-500 font-bold uppercase bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">Production ERP</span>
             </div>
             <h1 className="text-md font-black tracking-tight text-white uppercase font-mono">Talk of the Town</h1>
           </div>
+        </div>
+
+        {/* Brand Logo Illustration */}
+        <div className="flex justify-center items-center py-4 bg-neutral-900/40 rounded-2xl border border-neutral-850/80 p-6 shadow-inner">
+          <img 
+            src={brandLogo} 
+            alt="Talk Of The Town Logo" 
+            className="max-h-56 md:max-h-64 object-contain rounded-xl shadow-2xl hover:scale-102 transition-transform duration-300 border border-neutral-800"
+            referrerPolicy="no-referrer"
+          />
         </div>
 
         {/* Features Carousel Display */}
@@ -123,26 +154,46 @@ export const AuthScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* Status indicator bottom */}
-        <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 text-[10px] font-mono flex items-center justify-between text-neutral-500">
+        {/* Status indicator & Mode Toggle */}
+        <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 text-[10px] font-mono flex items-center justify-between text-neutral-500 gap-2">
           <span className="flex items-center gap-1.5 leading-none">
             <Globe className="w-3.5 h-3.5 text-neutral-500" />
-            <span>Connection State:</span>
+            <span>Connection Mode:</span>
           </span>
-          <span className={`font-bold flex items-center gap-1 ${isSandboxMode ? 'text-amber-500' : 'text-emerald-500 animate-pulse'}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${isSandboxMode ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
-            {isSandboxMode ? 'LOCAL SECURE SANDBOX' : 'LIVE FIREBASE CLOUD'}
-          </span>
+          <button 
+            type="button"
+            onClick={() => setIsSandboxMode(!isSandboxMode)}
+            className={`font-bold flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+              isSandboxMode 
+                ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20' 
+                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${isSandboxMode ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse'}`}></span>
+            <span>{isSandboxMode ? 'LOCAL SANDBOX' : 'LIVE FIREBASE'}</span>
+            <span className="text-[8px] opacity-60 underline ml-1">(Toggle)</span>
+          </button>
         </div>
 
       </div>
 
       {/* Auth visual panel right */}
-      <div className="w-full md:w-1/2 p-6 lg:p-12 self-stretch flex flex-col justify-center bg-neutral-900 border border-neutral-800 rounded-2xl md:rounded-l-none md:rounded-r-2xl shadow-xl max-w-lg md:max-w-none">
+      <div className="w-full md:w-1/2 p-6 lg:p-12 self-stretch flex flex-col justify-center bg-neutral-900/90 border border-neutral-800 rounded-2xl md:rounded-l-none md:rounded-r-2xl shadow-xl max-w-lg md:max-w-none relative z-10">
         
-        <div className="space-y-6">
+        <div className="space-y-5">
+
+          {/* Quick Launch ERP Button */}
+          <button
+            type="button"
+            onClick={() => quickSandboxLogin('super_admin')}
+            className="w-full py-3 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-neutral-950 font-black tracking-wider uppercase rounded-xl shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2.5 cursor-pointer text-xs font-mono transition-transform active:scale-[0.98] border border-amber-300/40"
+          >
+            <Sparkles className="w-4 h-4 fill-neutral-950 shrink-0" />
+            <span>🚀 Instant Demo Access (Launch ERP Dashboard)</span>
+            <ArrowRight className="w-4 h-4 shrink-0" />
+          </button>
           
-          <div className="space-y-1">
+          <div className="space-y-1 pt-1">
             <h3 className="text-xl font-bold font-mono tracking-tight uppercase text-white">
               {isResetView ? 'Password Recovery' : isLoginView ? 'Authenticate Credentials' : 'Staff Onboarding'}
             </h3>

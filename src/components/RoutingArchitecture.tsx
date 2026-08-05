@@ -283,10 +283,10 @@ export const RoutingArchitecture: React.FC = () => {
 
   // Load custom simulation candidates definitions
   const simulationCustomers = [
-    { id: 'CUST-001', name: 'Victorian Cricket Academy', affiliation: 'Academy', desc: 'State representative league coaching division' },
-    { id: 'CUST-002', name: 'Melton Cobras CC', affiliation: 'Club Team', desc: 'Regional league competitive shield club' },
-    { id: 'CUST-003', name: 'Stuart Broad (Refurb)', affiliation: 'Individual Athlete', desc: 'Elite professional test series refurb alignment' },
-    { id: 'CUST-004', name: 'Camberwell Lions Club', affiliation: 'Club Team', desc: 'Metropolitan grassroots development team' }
+    { id: 'CUST-001', name: 'Manipur Cricket Academy (Imphal)', affiliation: 'Academy', desc: 'State representative league coaching division' },
+    { id: 'CUST-002', name: 'Imphal Eastern Youth Sports Club', affiliation: 'Club Team', desc: 'Regional league competitive shield club' },
+    { id: 'CUST-003', name: 'Chungkham Singh (Refurb)', affiliation: 'Individual Athlete', desc: 'Elite professional test series refurb alignment' },
+    { id: 'CUST-004', name: 'Little Flower School Sports Club (Imphal)', affiliation: 'Club Team', desc: 'Metropolitan grassroots development team' }
   ];
 
   // Subscribe to real-time telemetry changes and event bus hooks

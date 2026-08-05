@@ -99,10 +99,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ orders = [], inventory
 
   // Simulated double entry datasets (Fallback ledger alignment)
   const outstandingInvoices = [
-    { client: 'Victorian Cricket Academy', inv: 'INV-2026-X11', status: 'partially_paid', balance: 450.00, age: '1 day' },
-    { client: 'Stuart Broad (Refurb)', inv: 'INV-2026-X13', status: 'unpaid', balance: 120.00, age: '25 days' },
-    { client: 'Camberwell Lions Club', inv: 'INV-2026-X14', status: 'unpaid', balance: 1680.00, age: '4 days' },
-    { client: 'Essendon Cricket Assoc', inv: 'INV-2026-X15', status: 'unpaid', balance: 2950.00, age: '12 days' }
+    { client: 'Manipur Cricket Academy (Imphal)', inv: 'INV-2026-X11', status: 'partially_paid', balance: 450.00, age: '1 day' },
+    { client: 'Chungkham Singh (Refurb)', inv: 'INV-2026-X13', status: 'unpaid', balance: 120.00, age: '25 days' },
+    { client: 'Little Flower School Sports Club (Imphal)', inv: 'INV-2026-X14', status: 'unpaid', balance: 1680.00, age: '4 days' },
+    { client: 'Imphal East Sports League', inv: 'INV-2026-X15', status: 'unpaid', balance: 2950.00, age: '12 days' }
   ];
 
   const totalOutstandingPayments = outstandingInvoices.reduce((sum, i) => sum + i.balance, 0);
@@ -661,16 +661,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ orders = [], inventory
 
                   <div className="space-y-2.5 font-mono text-[11px] pt-2">
                     <div className="flex items-center justify-between border-b pb-1.5">
-                      <span className="font-bold text-neutral-800">1. Victorian Cricket Academy</span>
-                      <span className="font-black text-amber-600">$54,200.00</span>
+                      <span className="font-bold text-neutral-800">1. Manipur Cricket Academy (Imphal)</span>
+                      <span className="font-black text-amber-600">INR 54,200.00</span>
                     </div>
                     <div className="flex items-center justify-between border-b pb-1.5">
-                      <span className="font-bold text-neutral-800">2. Melton Cobras CC</span>
-                      <span className="font-black text-neutral-700">$38,150.00</span>
+                      <span className="font-bold text-neutral-800">2. Imphal Eastern Youth Sports Club</span>
+                      <span className="font-black text-neutral-700">INR 38,150.00</span>
                     </div>
                     <div className="flex items-center justify-between border-b pb-1.5">
-                      <span className="font-bold text-neutral-800">3. Stuart Broad (Refurb)</span>
-                      <span className="font-black text-neutral-700">$18,460.00</span>
+                      <span className="font-bold text-neutral-800">3. Chungkham Singh (Refurb)</span>
+                      <span className="font-black text-neutral-700">INR 18,460.00</span>
                     </div>
                   </div>
 

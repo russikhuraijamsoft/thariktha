@@ -122,7 +122,7 @@ const SEED_NOTIFICATIONS: ERPNotification[] = [
   {
     id: "NTF-903",
     title: "💳 Invoice Settlement Complete",
-    message: "Melbourne Whse processed $5,460.00 payment for Victorian Chargers custom gloves assignment.",
+    message: "Imphal Central processed INR 5,460.00 payment for Manipur Youth Sports custom gloves assignment.",
     type: 'email',
     module: 'Billing',
     read: true,
@@ -298,14 +298,26 @@ export const NotificationsActivityView: React.FC<{
       const cachedLogs = localStorage.getItem('erp_activity_logs');
 
       if (cachedNotif) {
-        setNotifications(JSON.parse(cachedNotif));
+        try {
+          setNotifications(JSON.parse(cachedNotif));
+        } catch (e) {
+          console.error("Failed to parse cached notifications:", e);
+          setNotifications(SEED_NOTIFICATIONS);
+          localStorage.setItem('erp_notifications', JSON.stringify(SEED_NOTIFICATIONS));
+        }
       } else {
         setNotifications(SEED_NOTIFICATIONS);
         localStorage.setItem('erp_notifications', JSON.stringify(SEED_NOTIFICATIONS));
       }
 
       if (cachedLogs) {
-        setActivityLogs(JSON.parse(cachedLogs));
+        try {
+          setActivityLogs(JSON.parse(cachedLogs));
+        } catch (e) {
+          console.error("Failed to parse cached activity logs:", e);
+          setActivityLogs(SEED_ACTIVITY_LOGS);
+          localStorage.setItem('erp_activity_logs', JSON.stringify(SEED_ACTIVITY_LOGS));
+        }
       } else {
         setActivityLogs(SEED_ACTIVITY_LOGS);
         localStorage.setItem('erp_activity_logs', JSON.stringify(SEED_ACTIVITY_LOGS));
@@ -968,7 +980,7 @@ export const NotificationsActivityView: React.FC<{
                           setSimulateEventDesc("Cricket glove stitch workbench reported line clamp progress matching design parameters.");
                         } else if (val === 'Payment Overdue') {
                           setSimulateEventModule('Billing');
-                          setSimulateEventDesc("Overdue billing penalty flagged for Victorian Chargers account ledger.");
+                          setSimulateEventDesc("Overdue billing penalty flagged for Manipur Cricket Academy account ledger.");
                         } else if (val === 'Repair Completed') {
                           setSimulateEventModule('Servicing');
                           setSimulateEventDesc("TKT-342 (SS Platinum bat knocking) compiled successfully at craftsmanship desk.");

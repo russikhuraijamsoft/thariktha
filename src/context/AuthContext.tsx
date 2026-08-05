@@ -18,6 +18,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   isSandboxMode: boolean;
+  setIsSandboxMode: (val: boolean) => void;
   staffMembers: UserProfile[];
   hasPermission: (permission: string) => boolean;
   login: (email: string, pass: string) => Promise<void>;
@@ -25,6 +26,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  quickSandboxLogin: (roleId?: UserRole) => void;
   updateUserRole: (uid: string, nextRole: UserRole) => Promise<void>;
   toggleUserProfileStatus: (uid: string, status: 'active' | 'suspended') => Promise<void>;
   inviteStaffMember: (name: string, email: string, role: UserRole, branchId: string) => Promise<void>;
@@ -115,8 +117,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // Staff database which supports persistent simulations in local session
   const [staffMembers, setStaffMembers] = useState<UserProfile[]>(() => {
-    const cached = localStorage.getItem(LOCAL_STAFF_KEY);
-    return cached ? JSON.parse(cached) : PREPOPULATED_STAFF;
+    try {
+      const cached = localStorage.getItem(LOCAL_STAFF_KEY);
+      return cached ? JSON.parse(cached) : PREPOPULATED_STAFF;
+    } catch (e) {
+      console.error("Failed to parse cached staff list, falling back to default:", e);
+      return PREPOPULATED_STAFF;
+    }
   });
 
   useEffect(() => {
@@ -166,25 +173,98 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
           }
         } else {
-          setProfile(null);
+          const isLoggedOut = localStorage.getItem('user_logged_out') === 'true';
+          const savedUser = localStorage.getItem(LOCAL_SANDBOX_USER_KEY);
+          const savedProfile = localStorage.getItem(LOCAL_PROFILE_KEY);
+          if (!isLoggedOut) {
+            if (savedUser && savedProfile) {
+              try {
+                setUser(JSON.parse(savedUser));
+                setProfile(JSON.parse(savedProfile));
+              } catch (err) {
+                performSandboxLogin('super_admin_guru@cricketcloset.com');
+              }
+            } else {
+              performSandboxLogin('super_admin_guru@cricketcloset.com');
+            }
+          } else {
+            setUser(null);
+            setProfile(null);
+          }
         }
         setLoading(false);
       });
       return () => unsubscribe();
     } else {
       // Sandbox/Simulation mode - Load persistent local profiles if logged in
-      const savedUser = localStorage.getItem(LOCAL_SANDBOX_USER_KEY);
-      const savedProfile = localStorage.getItem(LOCAL_PROFILE_KEY);
-      if (savedUser && savedProfile) {
-        setUser(JSON.parse(savedUser));
-        setProfile(JSON.parse(savedProfile));
-      } else {
-        setUser(null);
-        setProfile(null);
+      try {
+        const isLoggedOut = localStorage.getItem('user_logged_out') === 'true';
+        const savedUser = localStorage.getItem(LOCAL_SANDBOX_USER_KEY);
+        const savedProfile = localStorage.getItem(LOCAL_PROFILE_KEY);
+        if (!isLoggedOut) {
+          if (savedUser && savedProfile) {
+            setUser(JSON.parse(savedUser));
+            setProfile(JSON.parse(savedProfile));
+          } else {
+            performSandboxLogin('super_admin_guru@cricketcloset.com');
+          }
+        } else {
+          setUser(null);
+          setProfile(null);
+        }
+      } catch (e) {
+        console.error("Failed to parse cached sandbox session, resetting cache:", e);
+        localStorage.removeItem(LOCAL_SANDBOX_USER_KEY);
+        localStorage.removeItem(LOCAL_PROFILE_KEY);
+        performSandboxLogin('super_admin_guru@cricketcloset.com');
       }
       setLoading(false);
     }
   }, [isSandboxMode]);
+
+  // Helper for instant local sandbox session
+  const performSandboxLogin = (email: string, pass?: string) => {
+    localStorage.removeItem('user_logged_out');
+    setIsSandboxMode(true);
+    const matchedStaff = staffMembers.find(s => s.email.toLowerCase() === email.toLowerCase());
+    const mockUser = {
+      uid: matchedStaff?.uid || `sandbox_${Date.now()}`,
+      email: email,
+      displayName: matchedStaff?.name || email.split('@')[0],
+      emailVerified: true
+    } as FirebaseUser;
+
+    const mockProfile: UserProfile = matchedStaff || {
+      uid: mockUser.uid,
+      name: mockUser.displayName || 'Sandbox Admin',
+      email: email,
+      roleId: 'super_admin',
+      branchId: 'Melbourne Closets',
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString()
+    };
+
+    if (matchedStaff) {
+      setStaffMembers(prev => prev.map(s => {
+        if (s.uid === matchedStaff.uid) {
+          return { ...s, lastLoginAt: new Date().toISOString() };
+        }
+        return s;
+      }));
+    }
+
+    localStorage.setItem(LOCAL_SANDBOX_USER_KEY, JSON.stringify(mockUser));
+    localStorage.setItem(LOCAL_PROFILE_KEY, JSON.stringify(mockProfile));
+    setUser(mockUser);
+    setProfile(mockProfile);
+  };
+
+  const quickSandboxLogin = (roleId: UserRole = 'super_admin') => {
+    const matchedStaff = staffMembers.find(s => s.roleId === roleId) || staffMembers[0];
+    performSandboxLogin(matchedStaff.email, 'admin123');
+  };
 
   // Handle Permissions check
   const hasPermission = (permission: string): boolean => {
@@ -199,55 +279,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       if (!isSandboxMode && isCloudConnected) {
-        // Authenticate with actual Firebase auth
-        await signInWithEmailAndPassword(auth, email, pass);
-      } else {
-        // Sandbox Mock Mode: look for matching credentials from prepopulated team profiles
-        const matchedStaff = staffMembers.find(s => s.email.toLowerCase() === email.toLowerCase());
-        
-        // Custom password mapping simulator:
-        // password is role name + '123' (e.g., 'super_admin123', 'manager123')
-        // Or default to 'admin123' if not matched
-        const resolvedRole = matchedStaff ? matchedStaff.roleId : 'super_admin';
-        const expectedPass = resolvedRole === 'super_admin' ? 'admin123' : `${resolvedRole}123`;
-        
-        if (pass === expectedPass || pass === 'admin123') {
-          const mockUser = {
-            uid: matchedStaff?.uid || `sandbox_${Date.now()}`,
-            email: email,
-            displayName: matchedStaff?.name || email.split('@')[0],
-            emailVerified: true
-          } as FirebaseUser;
-
-          const mockProfile: UserProfile = matchedStaff || {
-            uid: mockUser.uid,
-            name: mockUser.displayName || 'Sandbox Admin',
-            email: email,
-            roleId: 'super_admin',
-            branchId: 'Melbourne Closets',
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            lastLoginAt: new Date().toISOString()
-          };
-
-          // Update login timestamps in list
-          if (matchedStaff) {
-            setStaffMembers(prev => prev.map(s => {
-              if (s.uid === matchedStaff.uid) {
-                return { ...s, lastLoginAt: new Date().toISOString() };
-              }
-              return s;
-            }));
+        try {
+          // Authenticate with actual Firebase auth
+          await signInWithEmailAndPassword(auth, email, pass);
+        } catch (cloudErr: any) {
+          console.warn("Cloud login failed, attempting auto-registration or fallback to sandbox:", cloudErr);
+          try {
+            // Try auto-creating account on Firebase if not registered yet
+            const cred = await createUserWithEmailAndPassword(auth, email, pass);
+            const userRef = doc(db, 'users', cred.user.uid);
+            const matchedStaff = staffMembers.find(s => s.email.toLowerCase() === email.toLowerCase());
+            const newProfile: UserProfile = matchedStaff || {
+              uid: cred.user.uid,
+              name: email.split('@')[0],
+              email: email,
+              roleId: 'super_admin',
+              branchId: 'Melbourne Closets',
+              status: 'active',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+            await setDoc(userRef, newProfile);
+            setProfile(newProfile);
+            return;
+          } catch (regErr) {
+            console.warn("Cloud user auto-registration also failed, logging in via Sandbox mode", regErr);
           }
-
-          localStorage.setItem(LOCAL_SANDBOX_USER_KEY, JSON.stringify(mockUser));
-          localStorage.setItem(LOCAL_PROFILE_KEY, JSON.stringify(mockProfile));
-          setUser(mockUser);
-          setProfile(mockProfile);
-        } else {
-          throw new Error("Invalid credentials passed. Please match password 'admin123' or [role_id]+'123' (e.g. manager123).");
+          performSandboxLogin(email, pass);
         }
+      } else {
+        performSandboxLogin(email, pass);
       }
     } finally {
       setLoading(false);
@@ -259,33 +320,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       if (!isSandboxMode && isCloudConnected) {
-        const provider = new GoogleAuthProvider();
-        await signInWithPopup(auth, provider);
+        try {
+          const provider = new GoogleAuthProvider();
+          await signInWithPopup(auth, provider);
+        } catch (e) {
+          console.warn("Google Cloud login popup failed or blocked, falling back to sandbox mode:", e);
+          performSandboxLogin('super_admin_guru@cricketcloset.com', 'admin123');
+        }
       } else {
-        // Mock Google login
-        const mockUser = {
-          uid: `google_${Date.now()}`,
-          email: 'russi.khuraijam@gmail.com',
-          displayName: 'Russi Khuraijam Google Auth',
-          emailVerified: true
-        } as FirebaseUser;
-
-        const mockProfile: UserProfile = {
-          uid: mockUser.uid,
-          name: mockUser.displayName || 'Russi Khuraijam',
-          email: mockUser.email || '',
-          roleId: 'super_admin',
-          branchId: 'Melbourne Closets',
-          status: 'active',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          lastLoginAt: new Date().toISOString()
-        };
-
-        localStorage.setItem(LOCAL_SANDBOX_USER_KEY, JSON.stringify(mockUser));
-        localStorage.setItem(LOCAL_PROFILE_KEY, JSON.stringify(mockProfile));
-        setUser(mockUser);
-        setProfile(mockProfile);
+        performSandboxLogin('super_admin_guru@cricketcloset.com', 'admin123');
       }
     } finally {
       setLoading(false);
@@ -364,6 +407,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Logout handler
   const logout = async () => {
     setLoading(true);
+    localStorage.setItem('user_logged_out', 'true');
     try {
       if (!isSandboxMode && isCloudConnected) {
         await signOut(auth);
@@ -475,6 +519,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       profile,
       loading,
       isSandboxMode,
+      setIsSandboxMode,
       staffMembers,
       hasPermission,
       login,
@@ -482,6 +527,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       resetPassword,
       logout,
       loginWithGoogle,
+      quickSandboxLogin,
       updateUserRole,
       toggleUserProfileStatus,
       inviteStaffMember

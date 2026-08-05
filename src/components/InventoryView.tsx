@@ -291,39 +291,129 @@ export const InventoryView: React.FC<{
   const [formStatus, setFormStatus] = useState<'active' | 'draft' | 'discontinued'>('active');
   const [formBranch, setFormBranch] = useState<'Melbourne Closets' | 'London Closets' | 'All Branches'>('Melbourne Closets');
 
+  // Core Sub-tab navigation and auxiliary lists
+  const [activeSubTab, setActiveSubTab] = useState<'stock' | 'grn' | 'movements' | 'audit'>('stock');
+  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
+  const [inventoryTransactions, setInventoryTransactions] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [selectedPO, setSelectedPO] = useState<any | null>(null);
+  const [receivedQtys, setReceivedQtys] = useState<Record<string, number>>({});
+
   // 1. Establish real-time sync with default offline fallbacks
-  useEffect(() => {
-    if (isCloudConnected) {
-      setIsLoading(true);
-      // Setup realtime snapshot listeners
-      const productsQuery = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
-      const unsubProducts = onSnapshot(productsQuery, (snapshot) => {
-        const list: ProductItem[] = [];
-        snapshot.forEach((doc) => {
-          list.push({ id: doc.id, ...doc.data() } as ProductItem);
-        });
-        setProducts(list);
-        setIsLoading(false);
-      }, (error) => {
-        console.error("Firestore Listen products failed:", error);
+  const fetchProductsFromAzure = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/products');
+      if (response.ok) {
+        const data = await response.json();
+        setProducts(data);
+      } else {
+        console.warn("Failed to fetch products from backend, falling back to local list");
         loadLocalFallback();
-      });
-
-      const logsQuery = query(collection(db, 'inventory_logs'), orderBy('timestamp', 'desc'), limit(50));
-      const unsubLogs = onSnapshot(logsQuery, (snapshot) => {
-        const logged: InventoryLog[] = [];
-        snapshot.forEach((doc) => {
-          logged.push({ id: doc.id, ...doc.data() } as InventoryLog);
-        });
-        setLogs(logged);
-      });
-
-      return () => {
-        unsubProducts();
-        unsubLogs();
-      };
-    } else {
+      }
+    } catch (error) {
+      console.error("Error loading products from server:", error);
       loadLocalFallback();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchPurchaseOrders = async () => {
+    try {
+      const response = await fetch('/api/purchaseorders');
+      if (response.ok) {
+        const data = await response.json();
+        setPurchaseOrders(data);
+      }
+    } catch (error) {
+      console.error("Error loading purchase orders:", error);
+    }
+  };
+
+  const fetchInventoryTransactions = async () => {
+    try {
+      const response = await fetch('/api/inventory-transactions');
+      if (response.ok) {
+        const data = await response.json();
+        setInventoryTransactions(data);
+      }
+    } catch (error) {
+      console.error("Error loading movements:", error);
+    }
+  };
+
+  const fetchAuditLogs = async () => {
+    try {
+      const response = await fetch('/api/audit-logs');
+      if (response.ok) {
+        const data = await response.json();
+        setAuditLogs(data);
+      }
+    } catch (error) {
+      console.error("Error loading audit logs:", error);
+    }
+  };
+
+  const triggerReceivedStock = async (poId: string) => {
+    setIsLoading(true);
+    try {
+      // Create receiving items payload from the state or fall back to standard PO item mapping
+      // Standard initial PO items mappings:
+      // For PO-2026-001 (Total 18500): GLV-TON-PRO qty: 5 (₹11,000), GLV-SS-SKY10 qty: 3 (₹6,000), SG smartech helmet: 1 (₹1,500)
+      // For PO-2026-002: (Total 32000) ss ball, bats etc.
+      // We read custom user inputs or provide seed defaults if none are input:
+      const itemsToReceive = Object.keys(receivedQtys).length > 0 
+        ? Object.entries(receivedQtys).map(([sku, quantity]) => ({ sku, quantity }))
+        : [
+            { sku: "GLV-TON-PRO", quantity: 5 },
+            { sku: "GLV-SS-SKY10", quantity: 3 }
+          ];
+
+      const res = await fetch(`/api/purchaseorders/${poId}/receive`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          items: itemsToReceive,
+          operator: profile?.name || "Systems Operator"
+        })
+      });
+
+      if (res.ok) {
+        alert(`Successfully processed Goods Received Note (GRN) for Purchase Order: ${poId}! Stock levels updated and transactions recorded.`);
+        setSelectedPO(null);
+        setReceivedQtys({});
+        await fetchProductsFromAzure();
+        await fetchPurchaseOrders();
+        await fetchInventoryTransactions();
+        await fetchAuditLogs();
+      } else {
+        const err = await res.json();
+        alert(`Failed to receive PO stock: ${err.error || 'Server rejected request'}`);
+      }
+    } catch (err: any) {
+      alert(`Network error receiving PO stock: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProductsFromAzure();
+    fetchPurchaseOrders();
+    fetchInventoryTransactions();
+    fetchAuditLogs();
+
+    // Fetch local logs
+    const localLogs = localStorage.getItem('erp_inventory_logs');
+    if (localLogs) {
+      try {
+        setLogs(JSON.parse(localLogs));
+      } catch (e) {
+        console.error("Failed to parse local inventory logs:", e);
+      }
     }
   }, []);
 
@@ -333,7 +423,13 @@ export const InventoryView: React.FC<{
     const localLogs = localStorage.getItem('erp_inventory_logs');
 
     if (localProds) {
-      setProducts(JSON.parse(localProds));
+      try {
+        setProducts(JSON.parse(localProds));
+      } catch (e) {
+        console.error("Failed to parse local cached products:", e);
+        setProducts(SEED_INVENTORIES);
+        localStorage.setItem('erp_products', JSON.stringify(SEED_INVENTORIES));
+      }
     } else {
       // Seed preset items inside local storage
       localStorage.setItem('erp_products', JSON.stringify(SEED_INVENTORIES));
@@ -341,7 +437,11 @@ export const InventoryView: React.FC<{
     }
 
     if (localLogs) {
-      setLogs(JSON.parse(localLogs));
+      try {
+        setLogs(JSON.parse(localLogs));
+      } catch (e) {
+        console.error("Failed to parse local cached logs:", e);
+      }
     } else {
       const defaultLogs: InventoryLog[] = [
         {
@@ -368,40 +468,26 @@ export const InventoryView: React.FC<{
   const reseedDataToSource = async () => {
     if (window.confirm("Do you want to restore all product items to the premium catalogue presets containing gloves from your stock list?")) {
       setIsLoading(true);
-      if (isCloudConnected) {
-        try {
-          for (const item of SEED_INVENTORIES) {
-            await addDoc(collection(db, 'products'), item);
-          }
-          alert("Firestore catalog successfully populated!");
-        } catch (err) {
-          console.error("Firestore reseed error:", err);
-          alert("Unable to write directly. Fallback to offline store.");
+      try {
+        let seeded = 0;
+        for (const item of SEED_INVENTORIES) {
+          const response = await fetch('/api/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(item)
+          });
+          if (response.ok) seeded++;
         }
-      } else {
+        await fetchProductsFromAzure();
+        alert(`Populated ${seeded} premium baseline gear items into Azure SQL.`);
+      } catch (err) {
+        console.error("Reseed API error:", err);
         localStorage.setItem('erp_products', JSON.stringify(SEED_INVENTORIES));
         setProducts(SEED_INVENTORIES);
-        
-        // Write standard log
-        const syncLog: InventoryLog = {
-          productId: "seed-log-2",
-          productName: "ERP Reseed Triggered",
-          sku: "SYSTEM",
-          type: "audit_correction",
-          amount: SEED_INVENTORIES.length,
-          previousStock: products.length,
-          newStock: SEED_INVENTORIES.length,
-          reason: "Manual Database Reset & Refresh",
-          operator: profile?.name || "System Admin",
-          branchId: branchScope,
-          timestamp: new Date().toISOString()
-        };
-        const updatedLogs = [syncLog, ...logs];
-        localStorage.setItem('erp_inventory_logs', JSON.stringify(updatedLogs));
-        setLogs(updatedLogs);
-        alert("Offline Secure sandbox database successfully re-seeded!");
+        alert("Populated local store with backdrop configurations.");
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
   };
 
@@ -429,84 +515,54 @@ export const InventoryView: React.FC<{
       updatedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     };
 
-    if (isCloudConnected) {
-      try {
-        if (selectedProduct && selectedProduct.id) {
-          await updateDoc(doc(db, 'products', selectedProduct.id), { ...productPayload });
-          // Log adjustment
-          await addDoc(collection(db, 'inventory_logs'), {
-            productId: selectedProduct.id,
-            productName: formName,
-            sku: formSku,
-            type: "audit_correction",
-            amount: 0,
-            previousStock: selectedProduct.currentStock,
-            newStock: Number(formCurrentStock),
-            reason: `Catalog Update: ${formName}`,
-            operator: profile?.name || "Branch Operator",
-            branchId: formBranch,
-            timestamp: new Date().toISOString()
-          });
-        } else {
-          const docRef = await addDoc(collection(db, 'products'), productPayload);
-          await addDoc(collection(db, 'inventory_logs'), {
-            productId: docRef.id,
-            productName: formName,
-            sku: formSku,
-            type: "increase",
-            amount: Number(formCurrentStock),
-            previousStock: 0,
-            newStock: Number(formCurrentStock),
-            reason: `Initial Stock Register: ${formName}`,
-            operator: profile?.name || "Branch Operator",
-            branchId: formBranch,
-            timestamp: new Date().toISOString()
-          });
-        }
-      } catch (err) {
-        console.error("Firestore Save Product Error:", err);
+    try {
+      let isSuccess = false;
+      if (selectedProduct && selectedProduct.id) {
+        const response = await fetch(`/api/products/${selectedProduct.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(productPayload)
+        });
+        isSuccess = response.ok;
+      } else {
+        const response = await fetch('/api/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(productPayload)
+        });
+        isSuccess = response.ok;
       }
-    } else {
-      // Local Fallback Handler
-      let updatedList: ProductItem[] = [];
-      const nowString = new Date().toISOString();
-      const previousStock = selectedProduct ? selectedProduct.currentStock : 0;
 
+      if (isSuccess) {
+        await fetchProductsFromAzure();
+      } else {
+        // Fallback save locally
+        let updatedList: ProductItem[] = [];
+        if (selectedProduct) {
+          updatedList = products.map((p) => p.sku === selectedProduct.sku ? { ...productPayload } : p);
+        } else {
+          updatedList = [productPayload, ...products];
+        }
+        localStorage.setItem('erp_products', JSON.stringify(updatedList));
+        setProducts(updatedList);
+      }
+    } catch (err) {
+      console.error("Error submitting product:", err);
+      // Fallback save locally
+      let updatedList: ProductItem[] = [];
       if (selectedProduct) {
-        // Edit existing product
         updatedList = products.map((p) => p.sku === selectedProduct.sku ? { ...productPayload } : p);
       } else {
-        // Create new list item
         updatedList = [productPayload, ...products];
       }
-
-      // Append standard local log
-      const newLog: InventoryLog = {
-        productId: productPayload.sku,
-        productName: productPayload.name,
-        sku: productPayload.sku,
-        type: selectedProduct ? 'audit_correction' : 'increase',
-        amount: Math.abs(Number(formCurrentStock) - previousStock),
-        previousStock: previousStock,
-        newStock: Number(formCurrentStock),
-        reason: selectedProduct ? `Updated Specs for ${productPayload.name}` : `Stock item registered into ${productPayload.branchId}`,
-        operator: profile?.name || "Branch Manager",
-        branchId: productPayload.branchId,
-        timestamp: nowString
-      };
-
       localStorage.setItem('erp_products', JSON.stringify(updatedList));
       setProducts(updatedList);
-
-      const updatedLogs = [newLog, ...logs];
-      localStorage.setItem('erp_inventory_logs', JSON.stringify(updatedLogs));
-      setLogs(updatedLogs);
+    } finally {
+      setFormModalOpen(false);
+      setSelectedProduct(null);
+      clearFormFields();
+      setIsLoading(false);
     }
-
-    setFormModalOpen(false);
-    setSelectedProduct(null);
-    clearFormFields();
-    setIsLoading(false);
   };
 
   // 4. Edit/Delete click handlers
@@ -532,48 +588,27 @@ export const InventoryView: React.FC<{
   const handleDeleteClick = async (product: ProductItem) => {
     if (window.confirm(`Are you sure you want to completely delete "${product.name}" from the active inventory list?`)) {
       setIsLoading(true);
-      if (isCloudConnected && product.id) {
-        try {
-          await deleteDoc(doc(db, 'products', product.id));
-          await addDoc(collection(db, 'inventory_logs'), {
-            productId: product.id,
-            productName: product.name,
-            sku: product.sku,
-            type: "damaged_write_off",
-            amount: product.currentStock,
-            previousStock: product.currentStock,
-            newStock: 0,
-            reason: `Product entry deleted by ${profile?.name}`,
-            operator: profile?.name || "Operator",
-            branchId: product.branchId,
-            timestamp: new Date().toISOString()
-          });
-        } catch (err) {
-          console.error("Firestore Delete product error:", err);
+      try {
+        const response = await fetch(`/api/products/${product.id}`, {
+          method: 'DELETE'
+        });
+        if (response.ok) {
+          await fetchProductsFromAzure();
+        } else {
+          // Local fallback
+          const remaining = products.filter(p => p.sku !== product.sku);
+          localStorage.setItem('erp_products', JSON.stringify(remaining));
+          setProducts(remaining);
         }
-      } else {
+      } catch (err) {
+        console.error("Failed to delete product:", err);
+        // Local fallback
         const remaining = products.filter(p => p.sku !== product.sku);
         localStorage.setItem('erp_products', JSON.stringify(remaining));
         setProducts(remaining);
-
-        const deleteLog: InventoryLog = {
-          productId: product.sku,
-          productName: product.name,
-          sku: product.sku,
-          type: "damaged_write_off",
-          amount: product.currentStock,
-          previousStock: product.currentStock,
-          newStock: 0,
-          reason: `Product catalogue entry deleted from ERP console.`,
-          operator: profile?.name || "Branch Manager",
-          branchId: product.branchId,
-          timestamp: new Date().toISOString()
-        };
-        const updatedLogs = [deleteLog, ...logs];
-        localStorage.setItem('erp_inventory_logs', JSON.stringify(updatedLogs));
-        setLogs(updatedLogs);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
   };
 
@@ -597,116 +632,61 @@ export const InventoryView: React.FC<{
       return;
     }
 
-    const logType = adjustValue >= 0 ? 'increase' : 'decrease';
-
-    if (isCloudConnected && selectedProduct.id) {
-      try {
-        await updateDoc(doc(db, 'products', selectedProduct.id), {
-          currentStock: finalStock,
-          updatedAt: new Date().toLocaleDateString('en-GB')
-        });
-        await addDoc(collection(db, 'inventory_logs'), {
-          productId: selectedProduct.id,
-          productName: selectedProduct.name,
+    try {
+      const response = await fetch('/api/inventory', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           sku: selectedProduct.sku,
-          type: logType,
-          amount: Math.abs(adjustValue),
-          previousStock: oldStock,
-          newStock: finalStock,
-          reason: adjustReason,
-          operator: profile?.name || "Sentry Operator",
-          branchId: selectedProduct.branchId,
-          timestamp: new Date().toISOString()
-        });
-      } catch (err) {
-        console.error("Firestore Update Stock Error:", err);
-      }
-    } else {
-      const updatedList = products.map(p => {
-        if (p.sku === selectedProduct.sku) {
-          return { ...p, currentStock: finalStock };
-        }
-        return p;
+          stock: finalStock
+        })
       });
+
+      if (response.ok) {
+        await fetchProductsFromAzure();
+      } else {
+        const updatedList = products.map(p => p.sku === selectedProduct.sku ? { ...p, currentStock: finalStock } : p);
+        localStorage.setItem('erp_products', JSON.stringify(updatedList));
+        setProducts(updatedList);
+      }
+    } catch (err) {
+      console.error("Error applying adjustment:", err);
+      const updatedList = products.map(p => p.sku === selectedProduct.sku ? { ...p, currentStock: finalStock } : p);
       localStorage.setItem('erp_products', JSON.stringify(updatedList));
       setProducts(updatedList);
-
-      const localLog: InventoryLog = {
-        productId: selectedProduct.sku,
-        productName: selectedProduct.name,
-        sku: selectedProduct.sku,
-        type: logType,
-        amount: Math.abs(adjustValue),
-        previousStock: oldStock,
-        newStock: finalStock,
-        reason: adjustReason,
-        operator: profile?.name || "Branch Manager",
-        branchId: selectedProduct.branchId,
-        timestamp: new Date().toISOString()
-      };
-      const updatedLogs = [localLog, ...logs];
-      localStorage.setItem('erp_inventory_logs', JSON.stringify(updatedLogs));
-      setLogs(updatedLogs);
+    } finally {
+      setAdjustModalOpen(false);
+      setSelectedProduct(null);
+      setIsLoading(false);
     }
-
-    setAdjustModalOpen(false);
-    setSelectedProduct(null);
-    setIsLoading(false);
   };
 
   const quickIncrease = async (product: ProductItem, value: number) => {
     const oldStock = product.currentStock;
     const finalStock = oldStock + value;
     
-    if (isCloudConnected && product.id) {
-      try {
-        await updateDoc(doc(db, 'products', product.id), {
-          currentStock: finalStock,
-          updatedAt: new Date().toLocaleDateString('en-GB')
-        });
-        await addDoc(collection(db, 'inventory_logs'), {
-          productId: product.id,
-          productName: product.name,
+    try {
+      const response = await fetch('/api/inventory', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           sku: product.sku,
-          type: "increase",
-          amount: value,
-          previousStock: oldStock,
-          newStock: finalStock,
-          reason: "Quick manual replenishment trigger",
-          operator: profile?.name || "PWA Auto",
-          branchId: product.branchId,
-          timestamp: new Date().toISOString()
-        });
-      } catch (err) {
-        console.error(err);
-      }
-    } else {
-      const updatedList = products.map(p => {
-        if (p.sku === product.sku) {
-          return { ...p, currentStock: finalStock };
-        }
-        return p;
+          stock: finalStock
+        })
       });
+
+      if (response.ok) {
+        await fetchProductsFromAzure();
+      } else {
+        const updatedList = products.map(p => p.sku === product.sku ? { ...p, currentStock: finalStock } : p);
+        localStorage.setItem('erp_products', JSON.stringify(updatedList));
+        setProducts(updatedList);
+      }
+    } catch (err) {
+      console.error("Error doing quick increase:", err);
+      const updatedList = products.map(p => p.sku === product.sku ? { ...p, currentStock: finalStock } : p);
       localStorage.setItem('erp_products', JSON.stringify(updatedList));
       setProducts(updatedList);
-
-      const quickLog: InventoryLog = {
-        productId: product.sku,
-        productName: product.name,
-        sku: product.sku,
-        type: "increase",
-        amount: value,
-        previousStock: oldStock,
-        newStock: finalStock,
-        reason: "Incremental stock buffer (+10 Restock)",
-        operator: profile?.name || "Local Operator",
-        branchId: product.branchId,
-        timestamp: new Date().toISOString()
-      };
-      
-      const updatedLogs = [quickLog, ...logs];
-      localStorage.setItem('erp_inventory_logs', JSON.stringify(updatedLogs));
-      setLogs(updatedLogs);
     }
   };
 
@@ -893,7 +873,42 @@ export const InventoryView: React.FC<{
 
       </div>
 
-      {/* Control Panel: Filters, Search and Sorting Options */}
+      {/* CORE SUB-TAB SELECTION BAR */}
+      <div className="flex flex-wrap border-b border-[#e3dec9] gap-4" id="inventory-subtabs-navigation">
+        {[
+          { id: 'stock', label: 'Active Stockroom Levels', count: products.length, icon: Boxes },
+          { id: 'grn', label: 'Purchase GRN Receiving', count: purchaseOrders.filter(po => po.Status !== 'Received').length, icon: Truck },
+          { id: 'movements', label: 'Movement Ledger', count: inventoryTransactions.length, icon: ArrowUpDown },
+          { id: 'audit', label: 'Security Audit Trail', count: auditLogs.length, icon: ClipboardList }
+        ].map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeSubTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveSubTab(tab.id as any)}
+              className={`pb-3 px-1 flex items-center gap-2 border-b-2 text-xs font-mono font-bold uppercase transition-all duration-200 cursor-pointer ${
+                isActive ? 'border-amber-500 text-[#09090b] font-black' : 'border-transparent text-neutral-400 hover:text-neutral-600'
+              }`}
+            >
+              <Icon className={`w-4 h-4 ${isActive ? 'text-amber-500' : ''}`} />
+              <span>{tab.label}</span>
+              {tab.count > 0 && (
+                <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${
+                  isActive ? 'bg-amber-100 text-amber-700 font-bold' : 'bg-neutral-100 text-neutral-500 font-medium'
+                }`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ACTIVE SUB-TAB CONTENT DISPATCHER */}
+      {activeSubTab === 'stock' && (
+        <>
+          {/* Control Panel: Filters, Search and Sorting Options */}
       <div className="bg-white rounded-2xl p-5 border border-[#e3dec9] shadow-sm space-y-4">
         
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
@@ -1217,6 +1232,301 @@ export const InventoryView: React.FC<{
         </div>
 
       </div>
+      </>
+      )}
+
+      {/* PURCHASE GOODS RECEIVED NOTES (GRN) SUB-TAB */}
+      {activeSubTab === 'grn' && (
+        <div className="space-y-6" id="grn-workflow-panel">
+          <div className="bg-white rounded-2xl p-6 border border-[#e3dec9] shadow-sm space-y-2">
+            <h3 className="text-base font-black text-neutral-900 font-sans tracking-tight flex items-center gap-2">
+              <Truck className="w-5 h-5 text-amber-500" />
+              <span>Purchase Orders & Goods Received Note (GRN)</span>
+            </h3>
+            <p className="text-xs text-slate-500 font-sans max-w-2xl leading-relaxed">
+              Verify Supplier shipments and generate instant Goods Received Notes (GRN). This action increases warehouse stocks, logs historical inventory transactions, and updates Purchase Order statuses in the Microsoft Azure SQL ledger database.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            <div className="xl:col-span-6 space-y-4">
+              <span className="text-[10px] font-mono font-bold text-slate-400 block tracking-wider uppercase">Active PO Documents Register ({purchaseOrders.length})</span>
+              {purchaseOrders.length === 0 ? (
+                <div className="bg-white rounded-2xl p-12 text-center border border-[#e3dec9] text-slate-400 font-mono text-xs">
+                  No purchase orders found in registry.
+                </div>
+              ) : (
+                purchaseOrders.map((po) => {
+                  const isReceived = po.Status === 'Received';
+                  const isSelected = selectedPO?.PurchaseOrderID === po.PurchaseOrderID;
+                  return (
+                    <div 
+                      key={po.PurchaseOrderID} 
+                      onClick={() => {
+                        setSelectedPO(po);
+                        const defaultObj: Record<string, number> = {};
+                        if (po.PurchaseOrderID === 'PO-2026-001') {
+                          defaultObj["GLV-TON-PRO"] = 5;
+                          defaultObj["GLV-SS-SKY10"] = 3;
+                        } else {
+                          defaultObj["GLV-TON-PRO"] = 10;
+                        }
+                        setReceivedQtys(defaultObj);
+                      }}
+                      className={`p-4 bg-white rounded-2xl border transition-all cursor-pointer flex justify-between items-center ${
+                        isSelected ? 'border-amber-500 shadow-md ring-1 ring-amber-500/20' : 'border-[#e3dec9] hover:border-slate-400'
+                      }`}
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2.5">
+                          <span className="font-mono text-xs font-bold text-neutral-900 bg-neutral-100 px-2 py-0.5 rounded uppercase border border-neutral-200">
+                            {po.PurchaseOrderID}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                            isReceived ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-amber-50 border border-amber-200 text-amber-700'
+                          }`}>
+                            {po.Status || 'Shipped'}
+                          </span>
+                        </div>
+                        <div className="text-[11px] font-sans text-slate-500 flex items-center gap-3">
+                          <span>Date: <strong className="text-neutral-700">{po.OrderDate}</strong></span>
+                          <span>Est. Delivery: <strong className="text-neutral-700">{po.ExpectedDeliveryDate || 'N/A'}</strong></span>
+                        </div>
+                        <div className="text-[11px] font-sans text-slate-500">
+                          Supplier ID: <strong className="text-neutral-700">{po.SupplierID}</strong>
+                        </div>
+                      </div>
+                      <div className="text-right space-y-1.5 shrink-0">
+                        <span className="block text-sm font-black font-sans text-neutral-800">
+                          ₹{po.TotalAmount ? po.TotalAmount.toLocaleString() : '18,500'}
+                        </span>
+                        {!isReceived ? (
+                          <span className="text-[9px] font-mono text-amber-500 font-bold uppercase tracking-wide block animate-pulse">Pending GRN check</span>
+                        ) : (
+                          <span className="text-[9px] font-mono text-emerald-600 font-bold uppercase tracking-wide block">Stock Checked In</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="xl:col-span-6">
+              {selectedPO ? (
+                <div className="bg-white rounded-2xl p-6 border border-[#e3dec9] shadow-sm space-y-6">
+                  <div className="border-b border-slate-100 pb-3">
+                    <span className="text-[9px] font-mono bg-amber-100 text-amber-850 px-2.5 py-0.5 rounded border border-amber-200/50 uppercase font-bold">GRN Receiving Slip Verification</span>
+                    <h4 className="text-base font-black text-neutral-100 font-sans tracking-tight mt-1">
+                      Inspect PO: {selectedPO.PurchaseOrderID}
+                    </h4>
+                    <p className="text-xs text-slate-500 font-sans">Verify counts of products before approving stock reception.</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <span className="text-[10px] font-mono font-bold text-slate-400 block tracking-wider uppercase">Shipment Detail Checklist</span>
+                    
+                    <div className="space-y-3">
+                      {(selectedPO.PurchaseOrderID === 'PO-2026-001' ? [
+                        { sku: "GLV-TON-PRO", name: "SS TON PRO 1.0 Batting Gloves", recommended: 5 },
+                        { sku: "GLV-SS-SKY10", name: "SS SKY 1.0 Custom Gloves", recommended: 3 }
+                      ] : [
+                        { sku: "GLV-TON-PRO", name: "SS TON PRO 1.0 Batting Gloves", recommended: 10 }
+                      ]).map((item) => (
+                        <div key={item.sku} className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 text-xs">
+                          <div className="font-mono">
+                            <strong className="text-slate-900 block font-bold">{item.name}</strong>
+                            <span className="text-[10px] text-slate-400 bg-white border border-slate-100 px-2 py-0.5 rounded mt-0.5 inline-block">{item.sku}</span>
+                          </div>
+                          <div className="flex items-center gap-3 self-stretch md:self-auto justify-between md:justify-start">
+                            <span className="text-[11px] font-mono text-slate-400">Target PO Qty: <strong className="text-slate-700">{item.recommended}</strong></span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-slate-500 font-mono">Actual Received:</span>
+                              <input 
+                                type="number" 
+                                min={0}
+                                value={receivedQtys[item.sku] ?? item.recommended}
+                                onChange={(e) => {
+                                  const val = Math.max(0, parseInt(e.target.value) || 0);
+                                  setReceivedQtys(prev => ({ ...prev, [item.sku]: val }));
+                                }}
+                                className="w-16 border border-slate-200 rounded-lg px-2 py-1 text-center font-mono font-bold text-neutral-900 bg-white"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="bg-[#f4f3eb] p-3 rounded-xl border border-[#e3dec9] text-[11px] font-mono text-slate-600">
+                      <strong>Automatic Actions triggered:</strong> This GRN updates Purchase Order Status to <span className="text-emerald-700 font-bold">"Received"</span>, increments safety stock levels, logs transactions ledger, and registers a secure security signature.
+                    </div>
+
+                    {selectedPO.Status === 'Received' ? (
+                      <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-center text-xs font-bold text-emerald-800">
+                        ✓ This purchase order stock has already been completely received and checked in.
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => triggerReceivedStock(selectedPO.PurchaseOrderID)}
+                        className="w-full py-2.5 hover:bg-amber-600 bg-amber-500 text-neutral-950 font-mono font-bold uppercase text-xs tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4 stroke-[2.5]" />
+                        <span>Verify & Complete Stock Check In</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="h-full bg-slate-50 border-2 border-dashed border-[#e3dec9] rounded-2xl flex flex-col justify-center items-center p-12 text-center text-slate-400 font-mono text-xs">
+                  <span>👈 Select an active Purchase Order to inspect and verify stock reception.</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* INVENTORY MOVEMENTS LEDGER PANEL */}
+      {activeSubTab === 'movements' && (
+        <div className="space-y-4" id="movements-history-panel">
+          <div className="bg-white rounded-2xl p-6 border border-[#e3dec9] shadow-sm space-y-2">
+            <h3 className="text-base font-black text-neutral-900 font-sans tracking-tight flex items-center gap-2">
+              <ArrowUpDown className="w-5 h-5 text-amber-500" />
+              <span>Inventory Movements Transaction Ledger</span>
+            </h3>
+            <p className="text-xs text-slate-500 font-sans max-w-2xl leading-relaxed">
+              Historical ledger of physical stock room transactions. Displays increment/decrement trends (SALE, PURCHASE, ADJUSTMENT, RETURN) with immediate association to customer order and suppliers purchase documents.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-[#e3dec9] shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-[#e3dec9] text-xs font-mono text-slate-500 uppercase">
+                    <th className="px-6 py-4">Transaction Code</th>
+                    <th className="px-6 py-4">Category Type</th>
+                    <th className="px-6 py-4">Item (SKU)</th>
+                    <th className="px-6 py-4">Quantity Change</th>
+                    <th className="px-6 py-4">Reference Document</th>
+                    <th className="px-6 py-4">Timestamp</th>
+                    <th className="px-6 py-4">Details / Remarks</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm font-mono">
+                  {inventoryTransactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-12 text-center text-slate-400">No inventory transactions logged.</td>
+                    </tr>
+                  ) : (
+                    inventoryTransactions.map((tx) => {
+                      const isSale = tx.transaction_type === 'SALE';
+                      const isPurchase = tx.transaction_type === 'PURCHASE';
+                      const isAdjustment = tx.transaction_type === 'ADJUSTMENT';
+
+                      let badgeStyle = "bg-blue-50 text-blue-700";
+                      if (isSale) badgeStyle = "bg-rose-50 text-rose-700";
+                      else if (isPurchase) badgeStyle = "bg-emerald-50 text-emerald-700";
+                      else if (isAdjustment) badgeStyle = "bg-amber-50 text-amber-700";
+
+                      return (
+                        <tr key={tx.transaction_id} className="hover:bg-slate-50/50">
+                          <td className="px-6 py-4 font-bold text-neutral-800">{tx.transaction_id}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${badgeStyle}`}>
+                              {tx.transaction_type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="font-sans font-bold text-neutral-900 leading-snug">{tx.product_name}</div>
+                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">{tx.sku}</div>
+                          </td>
+                          <td className="px-6 py-4 font-black">
+                            <span className={tx.quantity < 0 ? 'text-rose-600' : 'text-emerald-600'}>
+                              {tx.quantity > 0 ? `+${tx.quantity}` : tx.quantity}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 font-bold text-neutral-700">{tx.reference_type}: {tx.reference_id}</td>
+                          <td className="px-6 py-4 text-slate-400 text-[10px]">{new Date(tx.transaction_date).toLocaleString()}</td>
+                          <td className="px-6 py-4 font-sans text-neutral-600">{tx.remarks}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECURITY IMMUTABLE AUDIT TRAIL SUB-TAB */}
+      {activeSubTab === 'audit' && (
+        <div className="space-y-4" id="security-audit-panel">
+          <div className="bg-white rounded-2xl p-6 border border-[#e3dec9] shadow-sm space-y-2">
+            <h3 className="text-base font-black text-neutral-900 font-sans tracking-tight flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-amber-500" />
+              <span>Relational Security Audit Trail (AuditLogs)</span>
+            </h3>
+            <p className="text-xs text-slate-500 font-sans max-w-2xl leading-relaxed">
+              Automatic immutable record of Create, Update, and Delete operations performed across ERP registers. Keeps full accountability of physical stock operations and invoice management.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-[#e3dec9] shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-[#e3dec9] text-xs font-mono text-slate-500 uppercase">
+                    <th className="px-6 py-4">UUID</th>
+                    <th className="px-6 py-4">Security Category</th>
+                    <th className="px-6 py-4">Affected Register</th>
+                    <th className="px-6 py-4">Register Reference ID</th>
+                    <th className="px-6 py-4">Immutable Details description</th>
+                    <th className="px-6 py-4">Responsible Operator</th>
+                    <th className="px-6 py-4">Recorded Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm font-mono">
+                  {auditLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-mono">No security audit logs found.</td>
+                    </tr>
+                  ) : (
+                    auditLogs.map((log) => {
+                      const isCreate = log.action_type === 'CREATE';
+                      const isDelete = log.action_type === 'DELETE';
+                      const isUpdate = log.action_type === 'UPDATE';
+
+                      let badgeStyle = "bg-blue-50 text-blue-700";
+                      if (isCreate) badgeStyle = "bg-emerald-50 text-emerald-700";
+                      else if (isDelete) badgeStyle = "bg-rose-50 text-rose-700 border border-rose-100";
+                      else if (isUpdate) badgeStyle = "bg-amber-50 text-amber-700";
+
+                      return (
+                        <tr key={log.log_id} className="hover:bg-slate-50/50">
+                          <td className="px-6 py-4 text-slate-500">{log.log_id}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${badgeStyle}`}>
+                              {log.action_type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 font-sans font-bold text-neutral-800">{log.target_table}</td>
+                          <td className="px-6 py-4 font-bold text-neutral-700">{log.target_id}</td>
+                          <td className="px-6 py-4 font-sans text-neutral-600 antialiased">{log.details}</td>
+                          <td className="px-6 py-4 font-bold text-neutral-800">{log.operator || 'Lanes cashier'}</td>
+                          <td className="px-6 py-4 text-slate-400 text-[10px]">{new Date(log.timestamp).toLocaleString()}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* INTERACTIVE FORM MODAL: REGISTER & EDIT PRODUCT CATALOG DETAILS */}
       <AnimatePresence>

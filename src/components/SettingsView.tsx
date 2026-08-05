@@ -185,7 +185,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     
     // Save locally
     const saved = localStorage.getItem('erp_admin_security_logs');
-    const logs = saved ? JSON.parse(saved) : [];
+    let logs: any[] = [];
+    if (saved) {
+      try {
+        logs = JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse security logs on write:", e);
+      }
+    }
     localStorage.setItem('erp_admin_security_logs', JSON.stringify([newEntry, ...logs].slice(0, 50)));
 
     // Try live write if connected
@@ -198,8 +205,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   useEffect(() => {
     // 1. Prepopulate default security logs if empty
     const localLogs = localStorage.getItem('erp_admin_security_logs');
+    let parsedLogs = null;
     if (localLogs) {
-      setSecurityLogs(JSON.parse(localLogs));
+      try {
+        parsedLogs = JSON.parse(localLogs);
+      } catch (e) {
+        console.error("Failed to parse cached security logs:", e);
+      }
+    }
+    if (parsedLogs) {
+      setSecurityLogs(parsedLogs);
     } else {
       const PRE_SEEDED_LOGS = [
         { id: 'LOG-9921', timestamp: '2026-05-25T16:20:11Z', operator: 'Sir Donald Bradman (Super Admin)', action: 'Cloud Config Deployed', detail: 'Upgraded TOTT active firestore index collections and synchronized access schemas.', ipAddress: '10.0.8.22', userAgent: 'Chrome Core Server OS' },
@@ -213,28 +228,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     // 2. Load Local Storage settings backups if available
     const localCompany = localStorage.getItem('erp_admin_company_settings');
     if (localCompany) {
-      const company = JSON.parse(localCompany);
-      setBusinessName(company.businessName || DEFAULT_BUSINESS_SETTINGS.businessName);
-      setGstNumber(company.gstNumber || DEFAULT_BUSINESS_SETTINGS.gstNumber);
-      setAddress(company.address || DEFAULT_BUSINESS_SETTINGS.address);
-      setContactEmail(company.email || DEFAULT_BUSINESS_SETTINGS.email);
-      setContactPhone(company.phone || DEFAULT_BUSINESS_SETTINGS.phone);
-      setCurrency(company.currency || DEFAULT_BUSINESS_SETTINGS.currency);
-      setGstRate(company.gstRate ?? DEFAULT_BUSINESS_SETTINGS.gstRate);
-      setSplitGst(company.splitGst ?? DEFAULT_BUSINESS_SETTINGS.splitGst);
-      setInvoicePrefix(company.invoicePrefix ?? DEFAULT_BUSINESS_SETTINGS.invoicePrefix);
-      setInvoiceFooter(company.invoiceFooter ?? DEFAULT_BUSINESS_SETTINGS.invoiceFooter);
-      setLogoUrl(company.logo ?? DEFAULT_BUSINESS_SETTINGS.logo);
+      try {
+        const company = JSON.parse(localCompany);
+        setBusinessName(company.businessName || DEFAULT_BUSINESS_SETTINGS.businessName);
+        setGstNumber(company.gstNumber || DEFAULT_BUSINESS_SETTINGS.gstNumber);
+        setAddress(company.address || DEFAULT_BUSINESS_SETTINGS.address);
+        setContactEmail(company.email || DEFAULT_BUSINESS_SETTINGS.email);
+        setContactPhone(company.phone || DEFAULT_BUSINESS_SETTINGS.phone);
+        setCurrency(company.currency || DEFAULT_BUSINESS_SETTINGS.currency);
+        setGstRate(company.gstRate ?? DEFAULT_BUSINESS_SETTINGS.gstRate);
+        setSplitGst(company.splitGst ?? DEFAULT_BUSINESS_SETTINGS.splitGst);
+        setInvoicePrefix(company.invoicePrefix ?? DEFAULT_BUSINESS_SETTINGS.invoicePrefix);
+        setInvoiceFooter(company.invoiceFooter ?? DEFAULT_BUSINESS_SETTINGS.invoiceFooter);
+        setLogoUrl(company.logo ?? DEFAULT_BUSINESS_SETTINGS.logo);
+      } catch (e) {
+        console.error("Failed to parse erp_admin_company_settings:", e);
+      }
     }
 
     const localBranches = localStorage.getItem('erp_admin_branches');
     if (localBranches) {
-      setBranches(JSON.parse(localBranches));
+      try {
+        setBranches(JSON.parse(localBranches));
+      } catch (e) {
+        console.error("Failed to parse erp_admin_branches:", e);
+      }
     }
 
     const localPermissions = localStorage.getItem('erp_admin_permissions_matrix');
     if (localPermissions) {
-      setPermissionsMatrix(JSON.parse(localPermissions));
+      try {
+        setPermissionsMatrix(JSON.parse(localPermissions));
+      } catch (e) {
+        console.error("Failed to parse erp_admin_permissions_matrix:", e);
+      }
     }
 
     // 3. Connect Live Firestore if real config is present

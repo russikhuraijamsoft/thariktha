@@ -37,7 +37,18 @@ import {
   Coins,
   Cpu,
   Bookmark,
-  PackageCheck
+  PackageCheck,
+  Printer,
+  Hammer,
+  Droplet,
+  Activity,
+  Check,
+  FileText,
+  Settings,
+  AlertCircle,
+  Play,
+  ShieldCheck,
+  Scale
 } from 'lucide-react';
 import { db, isCloudConnected } from '../firebase';
 import { UserProfile } from '../types/auth';
@@ -60,7 +71,7 @@ export type WorkflowStage = typeof WORKFLOW_STAGES[number];
 export interface WorkflowCardItem {
   id: string; // e.g. "CC-MFT-7311"
   orderId: string; // reference sale ID e.g. "TOTT-2026-9501"
-  customerName: string; // "Victorian Cricket Academy"
+  customerName: string; // "Manipur Cricket Academy (Imphal)"
   quantity: number; // total units (e.g. 50 jerseys)
   dueDate: string; // "YYYY-MM-DD"
   assignedStaff: string; // e.g. "Vijay Merchant"
@@ -80,10 +91,17 @@ export interface WorkflowCardItem {
   }[];
   createdAt: string;
   updatedAt: string;
+
+  // ELEVATED MES FIELDS
+  workstation?: string;
+  recipePreset?: string;
+  qcChecksCompleted?: string[];
+  moistureReading?: number;
+  weightReading?: number;
 }
 
 // Preset cricket specific materials
-const CRICKET_MATERIALS = [
+export const CRICKET_MATERIALS = [
   { key: 'willow_g1', name: 'Grade-1 English Willow Billet', unit: 'pcs' },
   { key: 'willow_g2', name: 'Grade-2 English Willow Billet', unit: 'pcs' },
   { key: 'jersey_blank', name: 'Jersey Sublimation Blank (Gold Edition)', unit: 'pcs' },
@@ -94,12 +112,130 @@ const CRICKET_MATERIALS = [
   { key: 'toe_cover', name: 'Heavy Duty Epoxy Toe Protectors', unit: 'pcs' }
 ];
 
+export interface RecipePreset {
+  key: string;
+  name: string;
+  materials: Record<string, number>;
+  description: string;
+}
+
+export const RECIPE_PRESETS: RecipePreset[] = [
+  {
+    key: 'willow_bat_g1',
+    name: 'Premium Grade-1 English Willow Bat',
+    materials: {
+      'Grade-1 English Willow Billet': 1,
+      'Octopus Non-Slip Rubber Grip': 1,
+      'Heavy Duty Epoxy Toe Protectors': 1,
+      'Holographic Gold Silk Thread': 1
+    },
+    description: 'Elite test-grade willow batting configuration with epoxy toe protection and premium gold wrapping.'
+  },
+  {
+    key: 'willow_bat_g2',
+    name: 'Standard Grade-2 Cleaved Bat',
+    materials: {
+      'Grade-2 English Willow Billet': 1,
+      'Octopus Non-Slip Rubber Grip': 1,
+      'Heavy Duty Epoxy Toe Protectors': 1
+    },
+    description: 'Reliable league-grade willow bat shaving with classic handle wrapping.'
+  },
+  {
+    key: 'gold_jersey',
+    name: 'Holographic Sublimation Jersey',
+    materials: {
+      'Jersey Sublimation Blank (Gold Edition)': 1,
+      'Holographic Gold Silk Thread': 2
+    },
+    description: 'Moisture-repelling custom-designed gold sublimation team wear.'
+  },
+  {
+    key: 'leather_ball_4pc',
+    name: 'Alum-Tanned 4-Piece Leather Ball Pack',
+    materials: {
+      'Alum-Tanned Red Leather Pack': 1,
+      'Holographic Gold Silk Thread': 1
+    },
+    description: 'High-seam match leather ball with multi-stitched core structure.'
+  },
+  {
+    key: 'batting_pads_axiom',
+    name: 'Axiom Protective Shell Pad Pair',
+    materials: {
+      'Axiom Protective Pad Shell': 1,
+      'Holographic Gold Silk Thread': 1
+    },
+    description: 'Ultra-lightweight protective foam shell batting pad pairs.'
+  }
+];
+
+export interface WorkstationItem {
+  id: string;
+  name: string;
+  stage: WorkflowStage;
+  status: 'ACTIVE' | 'RUNNING' | 'STANDBY' | 'CALIBRATING';
+  parameters: Record<string, string>;
+  description: string;
+  operator: string;
+}
+
+export const INITIAL_WORKSTATIONS: WorkstationItem[] = [
+  {
+    id: "WS-CUT-01",
+    name: "CNC Wood Carver & Lathe #1",
+    stage: "Cutting",
+    status: "ACTIVE",
+    parameters: { "Milling Speed": "3420 RPM", "Blade Wear": "88%", "Sanding Depth": "1.2mm" },
+    description: "Splicing, dynamic weight shaving, and handle fitting for premium english willow billets.",
+    operator: "Vijay Merchant"
+  },
+  {
+    id: "WS-PRT-02",
+    name: "Sublimation Heat-Vacuum Press #2",
+    stage: "Printing",
+    status: "STANDBY",
+    parameters: { "Temperature": "180°C", "Pressure": "0.82 bar", "Ink Level": "Gold: 95%" },
+    description: "Multi-layered high-resolution polyester dye sublimation and artwork transfer.",
+    operator: "Sarah Printworks"
+  },
+  {
+    id: "WS-STH-03",
+    name: "Precision Triple-Nylon Stitcher Row",
+    stage: "Stitching",
+    status: "RUNNING",
+    parameters: { "Stitch Count": "450/min", "Tension Level": "Auto-optimal", "Needle Size": "14g" },
+    description: "Four-piece leather ball seaming, protective pad strapping, and custom fabric assembly.",
+    operator: "Ricky Ponting"
+  },
+  {
+    id: "WS-QAL-04",
+    name: "QA Laser Calibrator & Moisture Lab",
+    stage: "Quality Check",
+    status: "ACTIVE",
+    parameters: { "Moisture Meter": "13.2%", "Scale Sensitivity": "0.01g", "Ping Sensor": "98% Index" },
+    description: "Non-destructive timber moisture level analysis, weight validation, and seam strength QC.",
+    operator: "Sir Donald Bradman"
+  }
+];
+
+export const INVENTORY_STOCKS_MOCK: Record<string, number> = {
+  'Grade-1 English Willow Billet': 12,
+  'Grade-2 English Willow Billet': 4,
+  'Jersey Sublimation Blank (Gold Edition)': 95,
+  'Alum-Tanned Red Leather Pack': 15,
+  'Holographic Gold Silk Thread': 28,
+  'Axiom Protective Pad Shell': 19,
+  'Octopus Non-Slip Rubber Grip': 32,
+  'Heavy Duty Epoxy Toe Protectors': 25
+};
+
 // Initial dummy database when firestore is empty
 const SEED_WORKFLOWS: WorkflowCardItem[] = [
   {
     id: "CC-MFT-8011",
     orderId: "TOTT-2026-9501",
-    customerName: "Victorian Cricket Academy",
+    customerName: "Manipur Cricket Academy (Imphal)",
     quantity: 50,
     dueDate: "2026-05-29",
     assignedStaff: "Sarah Printworks",
@@ -110,8 +246,8 @@ const SEED_WORKFLOWS: WorkflowCardItem[] = [
     notes: "PMS Gold 131C vector sublimation alignment check. High heat curing cycle 180s.",
     materials: { "Jersey Sublimation Blank (Gold Edition)": 50, "Holographic Gold Silk Thread": 2 },
     history: [
-      { timestamp: "2026-05-25T05:00:00Z", stage: "Pending", note: "Order custom ledger initialized under Melbourne branch", updatedBy: "Sir Donald Bradman" },
-      { timestamp: "2026-05-25T08:30:00Z", stage: "Design Approved", note: "Roster vectors aligned with pantone palette", updatedBy: "Ricky Ponting" },
+      { timestamp: "2026-05-25T05:00:00Z", stage: "Pending", note: "Order custom ledger initialized under Imphal branch", updatedBy: "Biren Singh" },
+      { timestamp: "2026-05-25T08:30:00Z", stage: "Design Approved", note: "Roster vectors aligned with pantone palette", updatedBy: "Biren Singh" },
       { timestamp: "2026-05-25T11:00:00Z", stage: "Printing", note: "Run sequence queued on Sublimation Core #2", updatedBy: "Sarah Printworks" }
     ],
     createdAt: "2026-05-25T05:00:00Z",
@@ -120,7 +256,7 @@ const SEED_WORKFLOWS: WorkflowCardItem[] = [
   {
     id: "CC-MFT-8012",
     orderId: "TOTT-2026-9502",
-    customerName: "Melton Cobras CC",
+    customerName: "Imphal Eastern Youth Sports Club",
     quantity: 12,
     dueDate: "2026-05-28",
     assignedStaff: "Vijay Merchant",
@@ -131,8 +267,8 @@ const SEED_WORKFLOWS: WorkflowCardItem[] = [
     notes: "Willow block calibration. Weight must be 2.8lb exactly. Handle dynamic splice matching.",
     materials: { "Grade-1 English Willow Billet": 12, "Octopus Non-Slip Rubber Grip": 12 },
     history: [
-      { timestamp: "2026-05-24T10:00:00Z", stage: "Pending", note: "Contract registered in ERP ledger", updatedBy: "Sir Donald Bradman" },
-      { timestamp: "2026-05-25T02:15:00Z", stage: "Design Approved", note: "Blades specifications confirmed by team coach Stuart Broad", updatedBy: "Ricky Ponting" },
+      { timestamp: "2026-05-24T10:00:00Z", stage: "Pending", note: "Contract registered in ERP ledger", updatedBy: "Biren Singh" },
+      { timestamp: "2026-05-25T02:15:00Z", stage: "Design Approved", note: "Blades specifications confirmed by team head coach Tomba Singh", updatedBy: "Ricky Ponting" },
       { timestamp: "2026-05-25T06:00:00Z", stage: "Cutting", note: "Billet wood shaving started on bench 1", updatedBy: "Vijay Merchant" }
     ],
     createdAt: "2026-05-24T10:00:00Z",
@@ -141,7 +277,7 @@ const SEED_WORKFLOWS: WorkflowCardItem[] = [
   {
     id: "CC-MFT-8013",
     orderId: "TOTT-2026-9503",
-    customerName: "Stuart Broad (Refurb)",
+    customerName: "Chungkham Singh (Refurb)",
     quantity: 1,
     dueDate: "2026-05-25",
     assignedStaff: "Vijay Merchant",
@@ -163,7 +299,7 @@ const SEED_WORKFLOWS: WorkflowCardItem[] = [
   {
     id: "CC-MFT-8014",
     orderId: "TOTT-2026-9504",
-    customerName: "Sydney Stars Club",
+    customerName: "Sajiwa Sports & Athletic Club",
     quantity: 120,
     dueDate: "2026-06-03",
     assignedStaff: "Ricky Ponting",
@@ -174,7 +310,7 @@ const SEED_WORKFLOWS: WorkflowCardItem[] = [
     notes: "Four piece match-grade alum leather hand-stitching sequence. Triple alignment check.",
     materials: { "Alum-Tanned Red Leather Pack": 40, "Holographic Gold Silk Thread": 3 },
     history: [
-      { timestamp: "2026-05-21T02:00:00Z", stage: "Pending", note: "Mass ball custom package setup completed", updatedBy: "Sir Donald Bradman" },
+      { timestamp: "2026-05-21T02:00:00Z", stage: "Pending", note: "Mass ball custom package setup completed", updatedBy: "Biren Singh" },
       { timestamp: "2026-05-22T08:00:00Z", stage: "Cutting", note: "Leather templates stamped and sorted", updatedBy: "Vijay Merchant" },
       { timestamp: "2026-05-25T01:00:00Z", stage: "Stitching", note: "Transitioning to triple nylon lock stitch workflow", updatedBy: "Ricky Ponting" }
     ],
@@ -184,7 +320,7 @@ const SEED_WORKFLOWS: WorkflowCardItem[] = [
   {
     id: "CC-MFT-8015",
     orderId: "TOTT-2026-9505",
-    customerName: "Lions Sports Club",
+    customerName: "Little Flower School Sports Club (Imphal)",
     quantity: 30,
     dueDate: "2026-06-12",
     assignedStaff: "Kane Stockroom",
@@ -195,8 +331,8 @@ const SEED_WORKFLOWS: WorkflowCardItem[] = [
     notes: "Embroidery matching on heavy-capacity fabrics. Waterproof lining specs check.",
     materials: {},
     history: [
-      { timestamp: "2026-05-25T03:00:00Z", stage: "Pending", note: "ERP entry created", updatedBy: "Sir Donald Bradman" },
-      { timestamp: "2026-05-25T07:00:00Z", stage: "Design Approved", note: "Sticker logo proofs matched by coach Stuart Broad", updatedBy: "Kane Stockroom" }
+      { timestamp: "2026-05-25T03:00:00Z", stage: "Pending", note: "ERP entry created", updatedBy: "Biren Singh" },
+      { timestamp: "2026-05-25T07:00:00Z", stage: "Design Approved", note: "Sticker logo proofs matched by coach Biren Singh", updatedBy: "Kane Stockroom" }
     ],
     createdAt: "2026-05-25T03:00:00Z",
     updatedAt: "2026-05-25T07:00:00Z"
@@ -215,6 +351,50 @@ export const ManufacturingWorkflow: React.FC<ManufacturingWorkflowProps> = ({ br
   const [selectedStaff, setSelectedStaff] = useState<string>('all');
   const [syncing, setSyncing] = useState(false);
 
+  // NEW MES SUB-VIEWS STATES
+  const [activeSubTab, setActiveSubTab] = useState<'kanban' | 'stations' | 'recipes'>('kanban');
+  const [workstations, setWorkstations] = useState<WorkstationItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('mes_workstations');
+      return saved ? JSON.parse(saved) : INITIAL_WORKSTATIONS;
+    } catch (e) {
+      console.error("Failed to parse mes_workstations, resetting to defaults:", e);
+      return INITIAL_WORKSTATIONS;
+    }
+  });
+  const [calibratingStationId, setCalibratingStationId] = useState<string | null>(null);
+  const [calibrationProgress, setCalibrationProgress] = useState(0);
+  const [rawStocks, setRawStocks] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('mes_raw_stocks');
+      return saved ? JSON.parse(saved) : INVENTORY_STOCKS_MOCK;
+    } catch (e) {
+      console.error("Failed to parse mes_raw_stocks, resetting to defaults:", e);
+      return INVENTORY_STOCKS_MOCK;
+    }
+  });
+
+  // Ticket modal overlays
+  const [isTicketOpen, setIsTicketOpen] = useState(false);
+  const [selectedTicketCard, setSelectedTicketCard] = useState<WorkflowCardItem | null>(null);
+
+  // QA Lab testing states (for active quality check stage in card details panel)
+  const [qcMoistureStatus, setQcMoistureStatus] = useState<'idle' | 'scanning' | 'passed'>('idle');
+  const [qcMoistureVal, setQcMoistureVal] = useState<number | null>(null);
+  const [qcWeightStatus, setQcWeightStatus] = useState<'idle' | 'measuring' | 'passed'>('idle');
+  const [qcWeightVal, setQcWeightVal] = useState<number | null>(null);
+  const [qcTensileVerified, setQcTensileVerified] = useState(false);
+  const [qcAntiScuffApplied, setQcAntiScuffApplied] = useState(false);
+  const [qcPivotBalanced, setQcPivotBalanced] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('mes_workstations', JSON.stringify(workstations));
+  }, [workstations]);
+
+  useEffect(() => {
+    localStorage.setItem('mes_raw_stocks', JSON.stringify(rawStocks));
+  }, [rawStocks]);
+
   // Modals / Panels
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<WorkflowCardItem | null>(null);
@@ -230,7 +410,9 @@ export const ManufacturingWorkflow: React.FC<ManufacturingWorkflowProps> = ({ br
     paymentStatus: 'unpaid',
     stage: 'Pending',
     notes: '',
-    materials: {}
+    materials: {},
+    workstation: 'WS-CUT-01',
+    recipePreset: ''
   });
 
   // Default interactive material state inside modlas
@@ -314,10 +496,16 @@ export const ManufacturingWorkflow: React.FC<ManufacturingWorkflowProps> = ({ br
   }, []);
 
   const loadLocalSimulation = () => {
-    const cached = localStorage.getItem('erp_manufacturing_workflows_data');
-    if (cached) {
-      setCards(JSON.parse(cached));
-    } else {
+    try {
+      const cached = localStorage.getItem('erp_manufacturing_workflows_data');
+      if (cached) {
+        setCards(JSON.parse(cached));
+      } else {
+        setCards(SEED_WORKFLOWS);
+        localStorage.setItem('erp_manufacturing_workflows_data', JSON.stringify(SEED_WORKFLOWS));
+      }
+    } catch (e) {
+      console.error("Failed to parse cached workflow data, resetting to defaults:", e);
       setCards(SEED_WORKFLOWS);
       localStorage.setItem('erp_manufacturing_workflows_data', JSON.stringify(SEED_WORKFLOWS));
     }
@@ -411,6 +599,21 @@ export const ManufacturingWorkflow: React.FC<ManufacturingWorkflowProps> = ({ br
     const matchedOrderId = newCard.orderId || `ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
     const stamp = new Date().toISOString();
 
+    // Check if recipe is selected and deduct stock
+    if (newCard.recipePreset) {
+      const selectedPreset = RECIPE_PRESETS.find(rp => rp.key === newCard.recipePreset);
+      if (selectedPreset) {
+        setRawStocks(prev => {
+          const updated = { ...prev };
+          Object.entries(selectedPreset.materials).forEach(([matName, qty]) => {
+            const neededQty = qty * (Number(newCard.quantity) || 1);
+            updated[matName] = Math.max(0, (updated[matName] || 0) - neededQty);
+          });
+          return updated;
+        });
+      }
+    }
+
     const createdCard: WorkflowCardItem = {
       id: uniqueId,
       orderId: matchedOrderId,
@@ -424,11 +627,16 @@ export const ManufacturingWorkflow: React.FC<ManufacturingWorkflowProps> = ({ br
       stage: newCard.stage || 'Pending',
       notes: newCard.notes || '',
       materials: cardMaterials,
+      workstation: newCard.workstation || 'WS-CUT-01',
+      recipePreset: newCard.recipePreset || '',
+      qcChecksCompleted: [],
       history: [
         {
           timestamp: stamp,
           stage: newCard.stage || 'Pending',
-          note: `Intake registered successfully: ${newCard.notes || 'Custom assembly started'}`,
+          note: `Intake registered successfully: ${newCard.notes || 'Custom assembly started'}${
+            newCard.recipePreset ? ` (BOM preset: ${RECIPE_PRESETS.find(r => r.key === newCard.recipePreset)?.name} allocated)` : ''
+          }${newCard.workstation ? ` (Routed to station: ${workstations.find(w => w.id === newCard.workstation)?.name})` : ''}`,
           updatedBy: profile?.name || 'System Operator'
         }
       ],
@@ -459,7 +667,9 @@ export const ManufacturingWorkflow: React.FC<ManufacturingWorkflowProps> = ({ br
       paymentStatus: 'unpaid',
       stage: 'Pending',
       notes: '',
-      materials: {}
+      materials: {},
+      workstation: 'WS-CUT-01',
+      recipePreset: ''
     });
     setCardMaterials({});
     setIsCreateModalOpen(false);
@@ -718,8 +928,44 @@ export const ManufacturingWorkflow: React.FC<ManufacturingWorkflowProps> = ({ br
 
       </div>
 
-      {/* 3. Search and Action Filters Dashboard */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm mb-8 flex flex-col md:flex-row gap-4 items-center justify-between" id="filtering-rail">
+      {/* MES Sub-View Switcher Tabs */}
+      <div className="flex border-b border-slate-200 mb-6 gap-2" id="mes-subviews-switcher">
+        <button
+          onClick={() => setActiveSubTab('kanban')}
+          className={`px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider border-b-2 transition-all ${
+            activeSubTab === 'kanban'
+              ? 'border-amber-500 text-amber-600'
+              : 'border-transparent text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          📋 Kanban Board View
+        </button>
+        <button
+          onClick={() => setActiveSubTab('stations')}
+          className={`px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider border-b-2 transition-all ${
+            activeSubTab === 'stations'
+              ? 'border-amber-500 text-amber-600'
+              : 'border-transparent text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          🖥️ Machine Workstations Monitor
+        </button>
+        <button
+          onClick={() => setActiveSubTab('recipes')}
+          className={`px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider border-b-2 transition-all ${
+            activeSubTab === 'recipes'
+              ? 'border-amber-500 text-amber-600'
+              : 'border-transparent text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          📦 Raw BOM & Recipe Presets
+        </button>
+      </div>
+
+      {activeSubTab === 'kanban' && (
+        <>
+          {/* 3. Search and Action Filters Dashboard */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm mb-8 flex flex-col md:flex-row gap-4 items-center justify-between" id="filtering-rail">
         
         {/* Search query field */}
         <div className="relative w-full md:max-w-md">
@@ -949,6 +1195,317 @@ export const ManufacturingWorkflow: React.FC<ManufacturingWorkflowProps> = ({ br
 
         </div>
       </div>
+      </>
+      )}
+
+      {/* --- FACTORY WORKSTATIONS MACHINE MONITOR VIEW --- */}
+      {activeSubTab === 'stations' && (
+        <div className="space-y-6" id="workstations-tab-pane">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 font-mono flex items-center gap-2">
+                  <Cpu className="w-5 h-5 text-amber-500" />
+                  <span>Interactive Factory Workstation & Machine Monitor</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-mono mt-1">
+                  Configure live machine parameters, monitor active workload queues, and perform high-precision calibrations.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono bg-amber-50 border border-amber-200/50 px-2.5 py-1 rounded text-amber-600 font-bold">
+                  Baseline Year: 2026
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {workstations.map((ws) => {
+                const wsCards = cards.filter(c => c.stage === ws.stage);
+                const isCalibrating = calibratingStationId === ws.id;
+
+                return (
+                  <div key={ws.id} className="border border-slate-200 bg-slate-50/50 rounded-xl p-5 space-y-4 hover:shadow-md transition-all">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-mono text-slate-400 font-bold block uppercase">{ws.id}</span>
+                        <h4 className="text-sm font-bold font-mono text-slate-900">{ws.name}</h4>
+                        <span className="text-[10px] font-mono bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full inline-block mt-1 font-bold">
+                          Stage: {ws.stage}
+                        </span>
+                      </div>
+                      
+                      <div className="text-right">
+                        <span className={`inline-flex items-center gap-1.5 text-[10px] font-mono font-black px-2.5 py-1 rounded-full border ${
+                          ws.status === 'ACTIVE' || ws.status === 'RUNNING'
+                            ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                            : ws.status === 'CALIBRATING'
+                            ? 'bg-amber-50 text-amber-500 border-amber-200 animate-pulse'
+                            : 'bg-slate-50 text-slate-500 border-slate-200'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${ws.status === 'ACTIVE' || ws.status === 'RUNNING' ? 'bg-emerald-500 animate-ping' : ws.status === 'CALIBRATING' ? 'bg-amber-500' : 'bg-slate-400'}`} />
+                          {ws.status}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono block mt-1.5">
+                          Operator: {ws.operator}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-500 leading-relaxed font-sans">{ws.description}</p>
+
+                    {/* Parameters Display */}
+                    <div className="bg-white p-3 rounded-xl border border-slate-150 grid grid-cols-3 gap-2">
+                      {Object.entries(ws.parameters).map(([paramName, paramVal]) => (
+                        <div key={paramName} className="text-center font-mono">
+                          <span className="text-[8px] text-slate-400 uppercase block font-bold">{paramName}</span>
+                          <span className="text-xs font-bold text-slate-700 block mt-0.5">{paramVal}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Active Workload Queues */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 font-bold uppercase">
+                        <span>Queued Batches ({wsCards.length})</span>
+                        <span>Total Pieces: {wsCards.reduce((sum, c) => sum + c.quantity, 0)} pcs</span>
+                      </div>
+                      
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 scrollbar-thin">
+                        {wsCards.map(c => (
+                          <div key={c.id} className="flex items-center justify-between bg-white border border-slate-150 p-2.5 rounded-lg text-xs font-mono">
+                            <div className="space-y-0.5 truncate max-w-[200px]">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-slate-800">{c.id}</span>
+                                <span className={`text-[8px] px-1 py-0.2 rounded font-black uppercase ${c.priority === 'rush' || c.priority === 'high' ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'}`}>{c.priority}</span>
+                              </div>
+                              <div className="text-[10px] text-slate-400 truncate">{c.customerName}</div>
+                            </div>
+                            <div className="text-right flex items-center gap-3">
+                              <span className="font-bold text-slate-700">{c.quantity} pcs</span>
+                              <button
+                                type="button"
+                                onClick={() => openCardEdits(c)}
+                                className="text-[10px] text-amber-500 hover:text-amber-600 font-bold underline cursor-pointer"
+                              >
+                                Detail
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        {wsCards.length === 0 && (
+                          <div className="text-center py-4 bg-white/40 border border-dashed border-slate-200 rounded-lg text-[10px] text-slate-400 font-mono">
+                            No active batches en-route for this station.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Station Action controls */}
+                    <div className="pt-2 border-t border-slate-200/50 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isCalibrating) return;
+                          setCalibratingStationId(ws.id);
+                          setCalibrationProgress(0);
+                          const interval = setInterval(() => {
+                            setCalibrationProgress(prev => {
+                              if (prev >= 100) {
+                                clearInterval(interval);
+                                // Update workstation status in state
+                                setWorkstations(prevWs => prevWs.map(item => {
+                                  if (item.id === ws.id) {
+                                    // Generate calibrated values
+                                    const refreshedParams = { ...item.parameters };
+                                    if (ws.id === "WS-CUT-01") refreshedParams["Blade Wear"] = "100% (CALIBRATED)";
+                                    if (ws.id === "WS-PRT-02") {
+                                      refreshedParams["Temperature"] = "180°C (OPTIMAL)";
+                                      refreshedParams["Pressure"] = "0.85 bar";
+                                    }
+                                    if (ws.id === "WS-STH-03") refreshedParams["Tension Level"] = "Auto-aligned (Optimal)";
+                                    if (ws.id === "WS-QAL-04") {
+                                      refreshedParams["Moisture Meter"] = "13.0%";
+                                      refreshedParams["Scale Sensitivity"] = "0.001g (ZEROED)";
+                                    }
+                                    return {
+                                      ...item,
+                                      status: 'ACTIVE',
+                                      parameters: refreshedParams
+                                    };
+                                  }
+                                  return item;
+                                }));
+                                setCalibratingStationId(null);
+                                return 100;
+                              }
+                              return prev + 25;
+                            });
+                          }, 300);
+                        }}
+                        disabled={isCalibrating}
+                        className={`text-[10px] font-mono font-bold tracking-wider uppercase px-3 py-1.5 border rounded-lg transition-all flex items-center gap-1.5 ${
+                          isCalibrating 
+                            ? 'bg-amber-50 text-amber-500 border-amber-200 cursor-not-allowed'
+                            : 'bg-white border-slate-250 hover:bg-slate-100 text-slate-600 active:scale-95'
+                        }`}
+                      >
+                        <Settings className={`w-3.5 h-3.5 ${isCalibrating ? 'animate-spin' : ''}`} />
+                        <span>{isCalibrating ? `Calibrating Laser [${calibrationProgress}%]` : '⚙️ Trigger Sensor Zero/Calibration'}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- RAW BOM RECIPES CATALOG VIEW --- */}
+      {activeSubTab === 'recipes' && (
+        <div className="space-y-6" id="recipes-tab-pane">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 font-mono flex items-center gap-2">
+                  <Bookmark className="w-5 h-5 text-amber-500" />
+                  <span>BOM Recipes & Live Material Safety Checks</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-mono mt-1">
+                  Validate recipe specifications against raw warehouse stockpiles. Restock safety levels instantaneously.
+                </p>
+              </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRawStocks(INVENTORY_STOCKS_MOCK);
+                    alert("Raw stock inventories successfully procured and replenished to default baseline levels!");
+                  }}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-mono rounded-xl text-xs font-bold transition-all border border-slate-200 cursor-pointer"
+                >
+                  🚚 Procure Stock Replenishments
+                </button>
+              </div>
+            </div>
+
+            {/* Warehouse Stock Grid */}
+            <div className="mb-8 bg-slate-50 border border-slate-200/80 p-5 rounded-2xl space-y-4">
+              <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider block">Raw Warehouse Stock Status</span>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+                {CRICKET_MATERIALS.map(m => {
+                  const qty = rawStocks[m.name] || 0;
+                  const isLow = qty <= 5;
+
+                  return (
+                    <div key={m.key} className="bg-white p-3.5 rounded-xl border border-slate-150 flex flex-col justify-between hover:border-slate-300 transition-all">
+                      <span className="text-[9px] font-mono text-slate-400 uppercase font-bold block truncate" title={m.name}>
+                        {m.name}
+                      </span>
+                      <div className="mt-2.5">
+                        <span className={`text-lg font-mono font-black ${isLow ? 'text-rose-500' : 'text-slate-800'}`}>
+                          {qty}
+                        </span>
+                        <span className="text-[9px] text-slate-400 font-mono ml-1">{m.unit}</span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-1 rounded-full mt-2 overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full ${isLow ? 'bg-rose-500' : 'bg-emerald-500'}`} 
+                          style={{ width: `${Math.min(100, (qty / 40) * 100)}%` }} 
+                        />
+                      </div>
+                      {isLow && (
+                        <span className="text-[8px] text-rose-500 font-mono mt-1 animate-pulse font-bold">LOW STOCK</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Recipes Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {RECIPE_PRESETS.map((rp) => {
+                // Check stock availability
+                const stockChecks = Object.entries(rp.materials).map(([name, neededQty]) => {
+                  const stockQty = rawStocks[name] || 0;
+                  return {
+                    name,
+                    needed: neededQty,
+                    available: stockQty,
+                    passed: stockQty >= neededQty
+                  };
+                });
+                const allPassed = stockChecks.every(c => c.passed);
+
+                return (
+                  <div key={rp.key} className="border border-slate-200 bg-slate-50/50 hover:bg-slate-50 rounded-xl p-5 flex flex-col justify-between hover:shadow-md transition-all">
+                    <div className="space-y-3.5">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-sm font-mono text-slate-900">{rp.name}</h4>
+                          <span className="text-[9px] text-[#E5B84B] font-mono font-bold uppercase tracking-widest bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                            Recipe SKU Preset
+                          </span>
+                        </div>
+                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                          allPassed 
+                            ? 'bg-emerald-50 text-emerald-600 border-emerald-200' 
+                            : 'bg-rose-50 text-rose-500 border-rose-200'
+                        }`}>
+                          {allPassed ? '✅ Stock OK' : '⚠️ Deficiency'}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-500 leading-relaxed font-sans">{rp.description}</p>
+
+                      <div className="space-y-2 pt-2">
+                        <span className="text-[9px] font-mono text-slate-400 font-bold block uppercase tracking-wider">Bill of Materials (BOM) Requirements</span>
+                        <div className="space-y-1.5 bg-white p-3 rounded-xl border border-slate-150">
+                          {stockChecks.map(chk => (
+                            <div key={chk.name} className="flex items-center justify-between text-xs font-mono">
+                              <span className="text-slate-600 text-[11px] truncate max-w-[180px]" title={chk.name}>{chk.name}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-400 font-bold">{chk.needed} unit</span>
+                                <span className={`text-[10px] font-bold px-1 rounded ${chk.passed ? 'text-emerald-600 bg-emerald-50' : 'text-rose-600 bg-rose-50'}`}>
+                                  (Stock: {chk.available})
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-200/60 mt-4 flex justify-between items-center font-mono">
+                      <span className="text-[10px] text-slate-400 font-mono">Deducts on job register</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewCard(prev => ({
+                            ...prev,
+                            recipePreset: rp.key,
+                            customerName: rp.name + ' Intake',
+                            notes: `Auto-generated batch for ${rp.name}.`
+                          }));
+                          // Automatically pre-load materials in state
+                          setCardMaterials(rp.materials);
+                          setIsCreateModalOpen(true);
+                        }}
+                        className="text-xs font-bold text-amber-500 hover:text-amber-600 flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Enqueue with this Recipe &rarr;</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- ADD NEW CUSTOM WORKFLOW MODAL --- */}
       <AnimatePresence>
@@ -982,7 +1539,7 @@ export const ManufacturingWorkflow: React.FC<ManufacturingWorkflowProps> = ({ br
                     <label className="text-[10px] font-mono text-slate-500 uppercase block font-bold">Guarantor Customer Name *</label>
                     <input
                       type="text"
-                      placeholder="e.g. Victorian Cricket Club"
+                      placeholder="e.g. Manipur Cricket Club"
                       required
                       value={newCard.customerName}
                       onChange={(e) => setNewCard(prev => ({ ...prev, customerName: e.target.value }))}
@@ -1080,6 +1637,46 @@ export const ManufacturingWorkflow: React.FC<ManufacturingWorkflowProps> = ({ br
                     >
                       {WORKFLOW_STAGES.map(stage => (
                         <option key={stage} value={stage}>{stage}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Recipe Preset */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono text-slate-500 uppercase block font-bold">BOM Recipe Preset</label>
+                    <select
+                      value={newCard.recipePreset || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNewCard(prev => ({ ...prev, recipePreset: val }));
+                        if (val) {
+                          const preset = RECIPE_PRESETS.find(rp => rp.key === val);
+                          if (preset) {
+                            setCardMaterials(preset.materials);
+                          }
+                        } else {
+                          setCardMaterials({});
+                        }
+                      }}
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-amber-400 rounded-lg p-2.5 text-xs text-slate-800 outline-none font-mono"
+                    >
+                      <option value="">No Recipe (Custom materials selection)</option>
+                      {RECIPE_PRESETS.map(preset => (
+                        <option key={preset.key} value={preset.key}>{preset.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Operational Workstation */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono text-slate-500 uppercase block font-bold">Target Machine Workstation</label>
+                    <select
+                      value={newCard.workstation || 'WS-CUT-01'}
+                      onChange={(e) => setNewCard(prev => ({ ...prev, workstation: e.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-amber-400 rounded-lg p-2.5 text-xs text-slate-800 outline-none font-mono"
+                    >
+                      {workstations.map(ws => (
+                        <option key={ws.id} value={ws.id}>{ws.id} | {ws.name}</option>
                       ))}
                     </select>
                   </div>
@@ -1407,6 +2004,150 @@ export const ManufacturingWorkflow: React.FC<ManufacturingWorkflowProps> = ({ br
                     }}
                     className="w-full bg-slate-50 border border-slate-200 focus:border-amber-400 rounded-lg p-2.5 text-xs text-slate-850 outline-none font-sans"
                   />
+                </div>
+
+                {/* 🛠️ Workstation Allocation & Routing */}
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200/60">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono text-slate-500 uppercase block font-bold">Allocated Workstation</label>
+                    <select
+                      value={editingCard.workstation || 'WS-CUT-01'}
+                      onChange={(e) => {
+                        const wsId = e.target.value;
+                        setEditingCard(prev => prev ? { ...prev, workstation: wsId } : null);
+                      }}
+                      className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-mono text-slate-800 outline-none"
+                    >
+                      {workstations.map(ws => (
+                        <option key={ws.id} value={ws.id}>{ws.id} - {ws.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono text-slate-500 uppercase block font-bold">BOM Recipe Preset</label>
+                    <div className="p-2 bg-white rounded-lg border border-slate-200 text-xs font-mono font-bold text-slate-700 h-[34px] flex items-center justify-between">
+                      <span>{editingCard.recipePreset ? RECIPE_PRESETS.find(rp => rp.key === editingCard.recipePreset)?.name : 'Custom Specifications'}</span>
+                      {editingCard.recipePreset && (
+                        <span className="text-[8px] px-1 bg-amber-50 text-amber-600 rounded font-black">PRESET</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 🧪 Interactive Quality Assurance Lab Testing Panel */}
+                <div className="bg-amber-500/5 p-4 rounded-xl border border-amber-500/20 space-y-3">
+                  <div className="flex items-center justify-between border-b border-amber-500/10 pb-1.5">
+                    <h4 className="text-[10px] font-mono text-amber-700 uppercase font-black tracking-wider flex items-center gap-1.5">
+                      <Gauge className="w-3.5 h-3.5" />
+                      <span>Precision QA Testing Laboratory</span>
+                    </h4>
+                    <span className="text-[9px] font-mono text-amber-600 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full">
+                      Tolerances: Wood ≤ 14% | Weight ±5g
+                    </span>
+                  </div>
+
+                  {/* Moisture Sensor Input */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[9px] font-mono text-slate-500 uppercase font-bold">Laser Moisture Reading</label>
+                        <span className={`text-[10px] font-mono font-bold ${Number(editingCard.moistureReading || 0) <= 14 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                          {editingCard.moistureReading ? `${editingCard.moistureReading}%` : 'Not Measured'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex gap-1.5">
+                        <input
+                          type="number"
+                          step="0.1"
+                          placeholder="e.g. 13.2"
+                          id="moisture-sensor-input"
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-mono outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const elem = document.getElementById('moisture-sensor-input') as HTMLInputElement;
+                            if (!elem || !elem.value) return;
+                            const val = Number(elem.value);
+                            setEditingCard(prev => prev ? { 
+                              ...prev, 
+                              moistureReading: val,
+                              qcChecksCompleted: val <= 14 
+                                ? Array.from(new Set([...(prev.qcChecksCompleted || []), 'Moisture Level Passed']))
+                                : (prev.qcChecksCompleted || []).filter(c => c !== 'Moisture Level Passed')
+                            } : null);
+                            elem.value = '';
+                          }}
+                          className="bg-neutral-900 hover:bg-neutral-800 text-white font-mono text-[9px] px-2.5 rounded-lg shrink-0 cursor-pointer"
+                        >
+                          Verify Calibration
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Scale Weight Tolerance Sensor Input */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[9px] font-mono text-slate-500 uppercase font-bold">Bench Scale Weight</label>
+                        <span className="text-[10px] font-mono font-bold text-slate-700">
+                          {editingCard.weightReading ? `${editingCard.weightReading} grams` : 'Not Weighed'}
+                        </span>
+                      </div>
+
+                      <div className="flex gap-1.5">
+                        <input
+                          type="number"
+                          placeholder="e.g. 1220"
+                          id="weight-scale-input"
+                          className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-mono outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const elem = document.getElementById('weight-scale-input') as HTMLInputElement;
+                            if (!elem || !elem.value) return;
+                            const val = Number(elem.value);
+                            setEditingCard(prev => prev ? { 
+                              ...prev, 
+                              weightReading: val,
+                              qcChecksCompleted: Array.from(new Set([...(prev.qcChecksCompleted || []), 'Weight Tolerance Verified']))
+                            } : null);
+                            elem.value = '';
+                          }}
+                          className="bg-neutral-900 hover:bg-neutral-800 text-white font-mono text-[9px] px-2.5 rounded-lg shrink-0 cursor-pointer"
+                        >
+                          Lock Scale
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Active Checks Tally */}
+                  <div className="flex flex-wrap gap-1.5 pt-1 border-t border-dashed border-amber-500/15">
+                    <span className="text-[9px] font-mono text-slate-400 font-bold uppercase mr-1.5 self-center">Verification Milestones:</span>
+                    {(editingCard.qcChecksCompleted || []).map(chk => (
+                      <span key={chk} className="text-[9px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        ✓ {chk}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingCard(prev => prev ? {
+                              ...prev,
+                              qcChecksCompleted: (prev.qcChecksCompleted || []).filter(c => c !== chk)
+                            } : null);
+                          }}
+                          className="text-emerald-500 hover:text-emerald-700 font-black cursor-pointer"
+                        >
+                          &times;
+                        </button>
+                      </span>
+                    ))}
+                    {(!editingCard.qcChecksCompleted || editingCard.qcChecksCompleted.length === 0) && (
+                      <span className="text-[9px] font-mono text-slate-400 italic">No verification sensors checked for this batch yet.</span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Save button and delete triggers */}

@@ -148,9 +148,9 @@ const SEED_SERVICE_TICKETS: ServiceTicket[] = [
   },
   {
     id: "TKT-302",
-    customerName: "Victorian Chargers Academy",
-    customerPhone: "+61 498 765 432",
-    customerEmail: "vca.admin@chargerscc.com",
+    customerName: "Manipur Youth Sports Development Academy",
+    customerPhone: "+91 385 244 5566",
+    customerEmail: "mysda.admin@manipuryouthsports.org",
     equipmentType: "BOLA Professional Bowling Machine (Blue v3)",
     problemDescription: "Main driving rotor pitch speed fluctuating above 85mph. High friction grinding noisemakers.",
     serviceType: "Bowling machine servicing",
@@ -173,9 +173,9 @@ const SEED_SERVICE_TICKETS: ServiceTicket[] = [
   },
   {
     id: "TKT-303",
-    customerName: "Marcus Stoinis",
-    customerPhone: "+61 400 111 222",
-    customerEmail: "stoinis.power@cricket.id",
+    customerName: "Chungkham Singh",
+    customerPhone: "+91 94360 88221",
+    customerEmail: "chungkham.singh@manipurathletics.org.in",
     equipmentType: "Gray-Nicolls Kaboom! Custom",
     problemDescription: "Worn traditional binding thread. Requires specialized 12,000lb knock-in cycles (2,000 strikes matching sweet spot target profile).",
     serviceType: "Bat knocking",
@@ -321,7 +321,13 @@ export const RepairServicingView: React.FC<{
     function fallbackToLocal() {
       const localTickets = localStorage.getItem('servicing_tickets');
       if (localTickets) {
-        setTickets(JSON.parse(localTickets));
+        try {
+          setTickets(JSON.parse(localTickets));
+        } catch (e) {
+          console.error("Failed to parse servicing_tickets, fallback to seed:", e);
+          setTickets(SEED_SERVICE_TICKETS);
+          localStorage.setItem('servicing_tickets', JSON.stringify(SEED_SERVICE_TICKETS));
+        }
       } else {
         setTickets(SEED_SERVICE_TICKETS);
         localStorage.setItem('servicing_tickets', JSON.stringify(SEED_SERVICE_TICKETS));

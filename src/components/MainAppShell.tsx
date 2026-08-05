@@ -1,15 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import brandLogo from '../assets/images/talk_of_the_town_logo_1780894452079.png';
 import { 
   LayoutDashboard, ShoppingCart, Boxes, Hammer, Users, CreditCard, 
   BarChart3, Settings, SlidersHorizontal, Database, Bell, Search, 
   LogOut, Menu, X, Sun, Moon, ChevronRight, Trophy, Sparkles, 
   Check, MapPin, User, Mail, ShieldAlert, Key, HelpCircle,
-  Printer, Wrench
+  Printer, Wrench, FileText, HardDrive
 } from 'lucide-react';
 
 interface MainAppShellProps {
-  activeTab: 'dashboard' | 'orders' | 'inventory' | 'manufacturing' | 'printing' | 'servicing' | 'notifications' | 'customers' | 'billing' | 'staff' | 'routing' | 'architecture' | 'reports' | 'settings';
+  activeTab: 'dashboard' | 'orders' | 'inventory' | 'manufacturing' | 'printing' | 'servicing' | 'notifications' | 'customers' | 'billing' | 'staff' | 'routing' | 'architecture' | 'reports' | 'settings' | 'proposal' | 'drive';
   setActiveTab: (tab: any) => void;
   branchScope: 'Melbourne Closets' | 'London Closets';
   setBranchScope: (scope: 'Melbourne Closets' | 'London Closets') => void;
@@ -105,10 +106,12 @@ export const MainAppShell: React.FC<MainAppShellProps> = ({
     {
       title: "Security & Customisation",
       items: [
+        { id: 'drive', label: 'Google Drive Storage', icon: HardDrive, badge: 'Cloud', badgeColor: 'bg-amber-950 text-amber-400 border border-amber-800/30' },
         { id: 'notifications', label: 'Sentry Audit & Alerts', icon: Bell, badge: 'Logs', badgeColor: 'bg-amber-950 text-amber-400 border border-amber-800/30' },
         { id: 'staff', label: 'Personnel Directory', icon: Users, badge: profile?.roleId === 'super_admin' ? 'Super' : undefined, badgeColor: 'bg-emerald-950 text-emerald-400 border border-emerald-800/30' },
         { id: 'routing', label: 'Routing & Sentry Auth', icon: SlidersHorizontal },
         { id: 'architecture', label: 'Database & Security Rules', icon: Database, badge: 'GCP', badgeColor: 'bg-teal-950 text-teal-400 border border-teal-800/35' },
+        { id: 'proposal', label: 'Bank DPR & Systems Proposal', icon: FileText, badge: 'DPR', badgeColor: 'bg-amber-950 text-amber-400 border border-amber-800/30' },
         { id: 'settings', label: 'System Settings', icon: Settings }
       ]
     }
@@ -123,6 +126,7 @@ export const MainAppShell: React.FC<MainAppShellProps> = ({
       case 'manufacturing': return 'Workshops & Fabrication';
       case 'printing': return 'Apparel Printing & Sublimation';
       case 'servicing': return 'Cricket Equipment Restoration & Repair Desk';
+      case 'drive': return 'Google Drive Cloud Asset Vault';
       case 'notifications': return 'Audit Logs & Sentry Monitor';
       case 'customers': return 'CRM Sport Clubs';
       case 'billing': return 'Bookkeeping Desk';
@@ -130,6 +134,7 @@ export const MainAppShell: React.FC<MainAppShellProps> = ({
       case 'staff': return 'Personnel Directory';
       case 'routing': return 'Sentry Auth Routing';
       case 'architecture': return 'Database Rules & Specs';
+      case 'proposal': return 'SBI Official Bank DPR & Systems Proposal Docs';
       case 'settings': return 'System Settings';
       default: return 'Active Channel';
     }
@@ -146,7 +151,7 @@ export const MainAppShell: React.FC<MainAppShellProps> = ({
 
     const matchedInventory = inventory
       .filter(i => i.name.toLowerCase().includes(query) || i.sku.toLowerCase().includes(query))
-      .map(i => ({ type: 'Inventory', id: i.sku, label: `${i.sku} - ${i.name}`, sub: `${i.stock} in stock • $${i.price}`, tab: 'inventory' }));
+      .map(i => ({ type: 'Inventory', id: i.sku, label: `${i.sku} - ${i.name}`, sub: `${i.stock} in stock • ₹${i.price}`, tab: 'inventory' }));
 
     const matchedCustomers = customers
       .filter(c => c.name.toLowerCase().includes(query) || c.affiliation.toLowerCase().includes(query))
@@ -172,9 +177,12 @@ export const MainAppShell: React.FC<MainAppShellProps> = ({
       {/* 2. RECON HEADER / TOP NAVIGATION (Mobile Only Trigger & Brand) */}
       <div className="lg:hidden bg-neutral-900 text-white border-b border-neutral-800 px-5 py-3.5 flex items-center justify-between z-30">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center text-neutral-950 font-bold shadow shadow-amber-500/10">
-            <Trophy className="w-4 h-4 stroke-[2.5]" />
-          </div>
+          <img 
+            src={brandLogo} 
+            alt="Talk of the Town Logo" 
+            className="w-8 h-8 rounded-lg object-cover border border-neutral-800 shadow shadow-amber-500/10"
+            referrerPolicy="no-referrer"
+          />
           <div>
             <h1 className="text-sm font-black tracking-tight uppercase">CRICKET CLOSET</h1>
             <span className="text-[9px] font-mono text-amber-500">Production ERP v4.2</span>
@@ -198,9 +206,12 @@ export const MainAppShell: React.FC<MainAppShellProps> = ({
           
           {/* Sidebar Top: Premium Logo and App Metadata */}
           <div className="flex items-center gap-3.5 pb-5 mb-5 border-b border-neutral-800/60">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center text-neutral-950 shadow-lg shadow-amber-500/20 shrink-0">
-              <Trophy className="w-5.5 h-5.5 stroke-[2.5]" />
-            </div>
+            <img 
+              src={brandLogo} 
+              alt="Talk of the Town Logo" 
+              className="w-11 h-11 rounded-xl object-cover border border-neutral-800 shadow-lg shadow-amber-500/20 shrink-0"
+              referrerPolicy="no-referrer"
+            />
             <div>
               <div className="flex items-center gap-1.5 mb-0.5">
                 <span className="text-[9px] font-mono tracking-widest text-[#E5B84B] font-bold uppercase bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/15">
@@ -298,9 +309,12 @@ export const MainAppShell: React.FC<MainAppShellProps> = ({
 
                 {/* Micro Brand and Name */}
                 <div className="flex items-center gap-3.5 pb-5 mb-5 border-b border-neutral-800/60">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center text-neutral-950 font-black shadow-md shrink-0">
-                    <Trophy className="w-5 h-5 stroke-[2.5]" />
-                  </div>
+                  <img 
+                    src={brandLogo} 
+                    alt="Talk of the Town Logo" 
+                    className="w-10 h-10 rounded-lg object-cover border border-neutral-800 shadow-md shrink-0"
+                    referrerPolicy="no-referrer"
+                  />
                   <div>
                     <h1 className="text-xs font-black tracking-widest text-white leading-none uppercase">
                       TALK OF THE TOWN
@@ -634,10 +648,20 @@ export const MainAppShell: React.FC<MainAppShellProps> = ({
           </header>
 
           {/* 7. RESPONSIVE CONTENT AREA */}
-          <main className={`flex-1 p-6 lg:p-8 overflow-y-auto ${
+          <main className={`flex-1 p-6 lg:p-8 overflow-y-auto relative ${
             isLight ? 'bg-[#FAF9F5]' : 'bg-neutral-950'
           }`} id="erp-view-container-workspace">
-            <div className="w-full max-w-7xl mx-auto">
+            {/* Ambient brand watermark layer */}
+            <div className="absolute inset-0 pointer-events-none opacity-[0.04] flex items-center justify-center z-0 select-none overflow-hidden">
+              <img 
+                src={brandLogo} 
+                alt="Watermark Background" 
+                className="w-[500px] h-[500px] object-contain filter saturate-75"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+
+            <div className="w-full max-w-7xl mx-auto relative z-10">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeTab}

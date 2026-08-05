@@ -36,7 +36,7 @@ import {
   Plus,
   Bell,
   SlidersHorizontal,
-  DollarSign,
+  IndianRupee,
   Boxes,
   MapPin,
   Calendar,
@@ -69,6 +69,8 @@ import { BillingPOSView } from './components/BillingPOSView';
 import { PrintingSublimationView } from './components/PrintingSublimationView';
 import { RepairServicingView } from './components/RepairServicingView';
 import { NotificationsActivityView } from './components/NotificationsActivityView';
+import { ProposalView } from './components/ProposalView';
+import { GoogleDriveView } from './components/GoogleDriveView';
 
 // --- Premium Generated Cricket Gloves Images ---
 import tonProGloves from './assets/images/ton_pro_gloves_1779691687706.png';
@@ -332,7 +334,7 @@ function MainERPApp() {
     {
       id: "ORD-2026-9501",
       customerId: "CUST-001",
-      customerName: "Victorian Cricket Academy",
+      customerName: "Manipur Cricket Academy (Imphal)",
       itemSummary: "2x Customized Grade-1 Willow Bats",
       itemType: "bat",
       specs: {
@@ -351,11 +353,11 @@ function MainERPApp() {
     {
       id: "ORD-2026-9502",
       customerId: "CUST-002",
-      customerName: "Melton Cobras CC",
+      customerName: "Imphal Eastern Youth Sports Club",
       itemSummary: "18x Gold Sublimation Jersey Wear",
       itemType: "jersey",
       specs: {
-        sublimationDesign: "Cobras Gold & Black Stripe series (v4)",
+        sublimationDesign: "Imphal Eastern Emerald & Gold custom stripe collection (v4)",
         jerseySize: "Mix (10x Large, 8x Medium)"
       },
       totalAmount: 1350.00,
@@ -368,7 +370,7 @@ function MainERPApp() {
     {
       id: "ORD-2026-9503",
       customerId: "CUST-003",
-      customerName: "Stuart Broad (Refurb)",
+      customerName: "Chungkham Singh (Refurb)",
       itemSummary: "1x Toe Guard Repair & Face Clean",
       itemType: "repairs",
       specs: {
@@ -384,7 +386,7 @@ function MainERPApp() {
     {
       id: "ORD-2026-9504",
       customerId: "CUST-004",
-      customerName: "Camberwell Lions Club",
+      customerName: "Little Flower School Sports Club (Imphal)",
       itemSummary: "4x English Willow Bats & Matches Balls",
       itemType: "bat",
       specs: {
@@ -411,34 +413,34 @@ function MainERPApp() {
   ]);
 
   const [jobs, setJobs] = useState<ERPJob[]>([
-    { id: "JOB-MILL-8850", orderId: "ORD-2026-9501", customerName: "Victorian Cricket Academy", sku: "BAT-EW-G1", type: "mill", status: "pressing", priority: "high", notes: "Calibrate press weight to 2.8lb exactly. Soft bounce.", craftsman: "Vijay Merchant" },
-    { id: "PRINT-SUB-0023", orderId: "ORD-2026-9502", customerName: "Melton Cobras CC", sku: "JER-SUB-GLD", type: "print", status: "curing", priority: "medium", notes: "Color pantone check PMS-131C. Cure heat cycle 180s.", craftsman: "Sarah Printworks" },
-    { id: "REP-WILLOW-0024", orderId: "ORD-2026-9503", customerName: "Stuart Broad (Refurb)", sku: "REPAIR-SERVICE", type: "repair", status: "final-tuning", priority: "low", notes: "Sand down splintered grain edges block, replace grip with matching gold ring skin.", craftsman: "Vijay Merchant" }
+    { id: "JOB-MILL-8850", orderId: "ORD-2026-9501", customerName: "Manipur Cricket Academy (Imphal)", sku: "BAT-EW-G1", type: "mill", status: "pressing", priority: "high", notes: "Calibrate press weight to 2.8lb exactly. Soft bounce.", craftsman: "Vijay Merchant" },
+    { id: "PRINT-SUB-0023", orderId: "ORD-2026-9502", customerName: "Imphal Eastern Youth Sports Club", sku: "JER-SUB-GLD", type: "print", status: "curing", priority: "medium", notes: "Color pantone check PMS-131C. Cure heat cycle 180s.", craftsman: "Sarah Printworks" },
+    { id: "REP-WILLOW-0024", orderId: "ORD-2026-9503", customerName: "Chungkham Singh (Refurb)", sku: "REPAIR-SERVICE", type: "repair", status: "final-tuning", priority: "low", notes: "Sand down splintered grain edges block, replace grip with matching gold ring skin.", craftsman: "Vijay Merchant" }
   ]);
 
   const [customers, setCustomers] = useState<ERPCustomer[]>([
-    { id: "CUST-001", name: "Victorian Cricket Academy", email: "contact@viccricket.org", phone: "+61-491-570-156", affiliation: "Academy", activeOrders: 1, branch: "Melbourne Closets", address: "87 St Kilda Rd, Melbourne VIC 3004" },
-    { id: "CUST-002", name: "Melton Cobras CC", email: "coach@meltoncobras.cc", phone: "+61-491-570-221", affiliation: "Club Team", activeOrders: 1, branch: "Melbourne Closets", address: "Cobras Arena, Melton VIC 3337" },
-    { id: "CUST-003", name: "Stuart Broad (Refurb)", email: "stuart@broadathletics.co.uk", phone: "+44-7911-884-211", affiliation: "Individual Athlete", activeOrders: 1, branch: "London Closets", address: "12 Lord's Lane, London NW8" },
-    { id: "CUST-004", name: "Camberwell Lions Club", email: "admin@camberwelllions.org", phone: "+61-491-570-344", affiliation: "Club Team", activeOrders: 1, branch: "Melbourne Closets", address: "Bowen Oval, Camberwell VIC 3124" }
+    { id: "CUST-001", name: "Manipur Cricket Academy (Imphal)", email: "contact@manipurcricketacademy.org.in", phone: "+91-385-2441011", affiliation: "Academy", activeOrders: 1, branch: "Melbourne Closets", address: "Khuman Lampak Sports Complex, Imphal East, Manipur 795001" },
+    { id: "CUST-002", name: "Imphal Eastern Youth Sports Club", email: "info@imphaleasternclub.com", phone: "+91-385-2442221", affiliation: "Club Team", activeOrders: 1, branch: "Melbourne Closets", address: "Sajiwa Sports Arena, Imphal East, Manipur 795114" },
+    { id: "CUST-003", name: "Chungkham Singh (Refurb)", email: "chungkham@manipurathletics.org.in", phone: "+91-385-9988111", affiliation: "Individual Athlete", activeOrders: 1, branch: "London Closets", address: "Singjamei Thokchom Leikai, Imphal West, Manipur 795008" },
+    { id: "CUST-004", name: "Little Flower School Sports Club (Imphal)", email: "sports@littleflowerschoolimphal.edu.in", phone: "+91-385-2440344", affiliation: "Club Team", activeOrders: 1, branch: "Melbourne Closets", address: "Sangaiprou, Airport Road, Imphal, Manipur 795001" }
   ]);
 
   const [invoices, setInvoices] = useState<ERPInvoice[]>([
-    { id: "INV-2026-X11", orderId: "ORD-2026-9501", customerName: "Victorian Cricket Academy", dueDate: "2026-06-12", amount: 900.00, paid: 450.00, status: "partially_paid" },
-    { id: "INV-2026-X12", orderId: "ORD-2026-9502", customerName: "Melton Cobras CC", dueDate: "2026-06-15", amount: 1350.00, paid: 1350.00, status: "paid" },
-    { id: "INV-2026-X13", orderId: "ORD-2026-9503", customerName: "Stuart Broad (Refurb)", dueDate: "2026-05-30", amount: 120.00, paid: 0.00, status: "unpaid" },
-    { id: "INV-2026-X14", orderId: "ORD-2026-9504", customerName: "Camberwell Lions Club", dueDate: "2026-06-25", amount: 1680.00, paid: 0.00, status: "unpaid" }
+    { id: "INV-2026-X11", orderId: "ORD-2026-9501", customerName: "Manipur Cricket Academy (Imphal)", dueDate: "2026-06-12", amount: 900.00, paid: 450.00, status: "partially_paid" },
+    { id: "INV-2026-X12", orderId: "ORD-2026-9502", customerName: "Imphal Eastern Youth Sports Club", dueDate: "2026-06-15", amount: 1350.00, paid: 1350.00, status: "paid" },
+    { id: "INV-2026-X13", orderId: "ORD-2026-9503", customerName: "Chungkham Singh (Refurb)", dueDate: "2026-05-30", amount: 120.00, paid: 0.00, status: "unpaid" },
+    { id: "INV-2026-X14", orderId: "ORD-2026-9504", customerName: "Little Flower School Sports Club (Imphal)", dueDate: "2026-06-25", amount: 1680.00, paid: 0.00, status: "unpaid" }
   ]);
 
   const [transactions, setTransactions] = useState<ERPTransaction[]>([
-    { id: "TXN-9091", invoiceId: "INV-2026-X11", amount: 450.00, type: "incoming_payment", method: "bank_transfer", date: "2026-05-24", reference: "BS-942-MEL_VIC" },
+    { id: "TXN-9091", invoiceId: "INV-2026-X11", amount: 450.00, type: "incoming_payment", method: "bank_transfer", date: "2026-05-24", reference: "BS-942-IMP_MCA" },
     { id: "TXN-9092", invoiceId: "INV-2026-X12", amount: 1350.00, type: "incoming_payment", method: "card", date: "2026-05-23", reference: "STRIPE_CH_9003" }
   ]);
 
   const [notifications, setNotifications] = useState<ERPNotification[]>([
     { id: "NOT-01", title: "Low Stock Trigger: English Willow", message: "Grade-2 English Willow cleaves (SKU: BAT-EW-G2) fell below Safety Guard level 5.", type: "low_stock", time: "25 mins ago", read: false },
     { id: "NOT-02", title: "Alum Match Balls Replenishment Needed", message: "Alum 4-Piece Balls (SKU: BAL-LEW-RED) inventory is holding 15 vs safety minimum of 24.", type: "low_stock", time: "2 hours ago", read: false },
-    { id: "NOT-03", title: "Job Printing Sublimation In Curing", message: "Sarah Printworks registered PMS color curing session for Melton Cobras design proofs.", type: "job_milestone", time: "4 hours ago", read: true }
+    { id: "NOT-03", title: "Job Printing Sublimation In Curing", message: "Sarah Printworks registered PMS color curing session for Imphal Eastern design proofs.", type: "job_milestone", time: "4 hours ago", read: true }
   ]);
 
   // --- Client Mock Event Streams for PWA Sync telemetry panel ---
@@ -458,6 +460,49 @@ function MainERPApp() {
       setTelemetryLogs
     });
   }, [orders, inventory, jobs, customers, notifications, telemetryLogs]);
+
+  // Synchronically hydrate ERP collections from Live Azure SQL databases via server proxies
+  useEffect(() => {
+    const hydrateGlobalERPState = async () => {
+      try {
+        logTelemetry("Hydrating central ERP registers from Azure SQL database...", "syncing");
+        
+        // 1. Fetch Inventory
+        const resInv = await fetch('/api/inventory');
+        if (resInv.ok) {
+          const invList = await resInv.json();
+          if (invList && invList.length > 0) {
+            setInventory(invList);
+          }
+        }
+
+        // 2. Fetch Customers
+        const resCust = await fetch('/api/customers');
+        if (resCust.ok) {
+          const custList = await resCust.json();
+          if (custList && custList.length > 0) {
+            setCustomers(custList);
+          }
+        }
+
+        // 3. Fetch Orders
+        const resOrd = await fetch('/api/orders');
+        if (resOrd.ok) {
+          const ordList = await resOrd.json();
+          if (ordList && ordList.length > 0) {
+            setOrders(ordList);
+          }
+        }
+
+        logTelemetry("In-store ERP state hydrated with live cloud registers.", "synced");
+      } catch (err) {
+        console.error("Hydration error:", err);
+        logTelemetry("Azure state hydration skipped, maintaining stored local databases.", "info");
+      }
+    };
+
+    hydrateGlobalERPState();
+  }, [branchScope]);
 
   // --- Interactive Modals Toggles ---
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
@@ -734,13 +779,13 @@ function MainERPApp() {
     setTransactions(prev => [createdTxn, ...prev]);
 
     // Log telemetry
-    logTelemetry(`Invoice Payment logged for ${invoice.id}: Received $${paymentForm.payAmount}. Status: ${updatedStatus.toUpperCase()}`, 'synced');
+    logTelemetry(`Invoice Payment logged for ${invoice.id}: Received ₹${paymentForm.payAmount}. Status: ${updatedStatus.toUpperCase()}`, 'synced');
     
     setNotifications(prev => [
       {
         id: `NOT-PAY-${txnId}`,
         title: "Cash Balance Ledger Credit",
-        message: `Registered $${paymentForm.payAmount} incoming deposit to account invoice ${invoice.id}.`,
+        message: `Registered ₹${paymentForm.payAmount} incoming deposit to account invoice ${invoice.id}.`,
         type: "payment_alert",
         time: "Just now",
         read: false
@@ -804,14 +849,14 @@ function MainERPApp() {
                   <div className="bg-neutral-900 p-5 rounded-xl border border-neutral-800 flex items-center justify-between select-none">
                     <div className="space-y-1">
                       <span className="text-[10px] font-mono font-bold text-neutral-500 tracking-wider uppercase">LEDGER CREDITS (YTD)</span>
-                      <h3 className="text-2xl font-black text-white font-mono">$10,480.00</h3>
+                      <h3 className="text-2xl font-black text-white font-mono">₹10,480.00</h3>
                       <div className="flex items-center gap-1 text-[10px] font-mono text-emerald-400">
                         <TrendingUp className="w-3 h-3" />
-                        <span>+$1,800.00 today (100% verified)</span>
+                        <span>+₹1,800.00 today (100% verified)</span>
                       </div>
                     </div>
                     <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20 shrink-0">
-                      <DollarSign className="w-5 h-5 focus:outline-none" />
+                      <IndianRupee className="w-5 h-5 focus:outline-none" />
                     </div>
                   </div>
 
@@ -916,7 +961,7 @@ function MainERPApp() {
                           <circle cx="420" cy="30" r="5" fill="#ffffff" stroke="#E5B84B" strokeWidth="2" />
                           
                           {/* Tooltip logs */}
-                          <text x="245" y="32" fill="#E5B84B" fontSize="9" fontFamily="monospace" fontWeight="bold">ORD-9502: $1,350</text>
+                          <text x="245" y="32" fill="#E5B84B" fontSize="9" fontFamily="monospace" fontWeight="bold">ORD-9502: ₹1,350</text>
                           <text x="400" y="20" fill="#E5B84B" fontSize="9" fontFamily="monospace" fontWeight="bold">NEW REVENUE PEAK</text>
                         </svg>
                       </div>
@@ -1112,6 +1157,19 @@ function MainERPApp() {
                 className="space-y-6"
               >
                 <RepairServicingView branchScope={branchScope} profile={profile} />
+              </motion.div>
+            )}
+
+            {/* 4.7. GOOGLE DRIVE CLOUD ASSET VAULT */}
+            {activeTab === 'drive' && (
+              <motion.div 
+                key="tab-drive" 
+                initial={{ opacity: 0, y: 15 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -15 }}
+                className="space-y-6"
+              >
+                <GoogleDriveView />
               </motion.div>
             )}
 
@@ -1386,6 +1444,18 @@ function MainERPApp() {
               </motion.div>
             )}
 
+            {/* 12. LAUNCH PROPOSAL DOCUMENT VIEW */}
+            {activeTab === 'proposal' && (
+              <motion.div 
+                key="tab-proposal" 
+                initial={{ opacity: 0, y: 15 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -15 }}
+              >
+                <ProposalView />
+              </motion.div>
+            )}
+
           </AnimatePresence>
         </MainAppShell>
 
@@ -1523,7 +1593,7 @@ function MainERPApp() {
                       value={newOrderForm.sublimationDesign}
                       onChange={(e) => setNewOrderForm(prev => ({ ...prev, sublimationDesign: e.target.value }))}
                       className="w-full bg-neutral-900 border border-neutral-805 rounded p-2 text-[11px] text-white focus:outline-none font-mono"
-                      placeholder="e.g., Melton Club Crest Stripe PMS-Gold"
+                      placeholder="e.g., Imphal Eastern Club Crest Stripe PMS-Gold"
                     />
                   </div>
                 </div>
@@ -1633,7 +1703,7 @@ function MainERPApp() {
               <div className="grid grid-cols-2 gap-3 text-[11px] pt-2">
                 <div>
                   <span className="text-[9px] text-neutral-500 block uppercase font-black">TOTAL BILLETS VALUE:</span>
-                  <strong className="text-lg font-black text-[#E5B84B] font-mono">${selectedOrderDetails.totalAmount.toFixed(2)}</strong>
+                  <strong className="text-lg font-black text-[#E5B84B] font-mono">₹{selectedOrderDetails.totalAmount.toFixed(2)}</strong>
                 </div>
                 <div className="text-right">
                   <span className="text-[9px] text-neutral-500 block uppercase font-black">CONTRACT PROMISED:</span>
@@ -1690,7 +1760,7 @@ function MainERPApp() {
                 >
                   {invoices.filter(i => i.status !== 'paid').map(inv => (
                     <option key={inv.id} value={inv.id}>
-                      {inv.id} | {inv.customerName} (${(inv.amount - inv.paid).toFixed(2)} debt)
+                      {inv.id} | {inv.customerName} (₹{(inv.amount - inv.paid).toFixed(2)} debt)
                     </option>
                   ))}
                   {invoices.filter(i => i.status !== 'paid').length === 0 && (

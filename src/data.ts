@@ -90,7 +90,7 @@ export const COLLECTIONS_DATA: CollectionSchema[] = [
     features: ['PII Isolated', 'Offline Buffered', 'Sync-Optimized'],
     fields: [
       { name: 'id', type: 'string', required: true, description: 'Unique customer sequence identifier.', sampleValue: '"cust_cricket_aus"' },
-      { name: 'name', type: 'string', required: true, description: 'Contact champion or institute title.', sampleValue: '"Victorian Cricket Academy"' },
+      { name: 'name', type: 'string', required: true, description: 'Contact champion or institute title.', sampleValue: '"Manipur Cricket Academy"' },
       { name: 'email', type: 'string', required: true, description: 'Direct email for invoices.', sampleValue: '"billing@viccricket.org"' },
       { name: 'phone', type: 'string', required: true, description: 'Global sequence phone number.', sampleValue: '"+61-491-570-156"' },
       { name: 'company', type: 'string', required: false, description: 'Parent organization if business account.', sampleValue: '"Cricket Victoria"' },
@@ -135,7 +135,7 @@ export const COLLECTIONS_DATA: CollectionSchema[] = [
       { name: 'id', type: 'string', required: true, description: 'Unique team collection identification index.', sampleValue: '"team_cobras_mel"' },
       { name: 'name', type: 'string', required: true, description: 'Official club moniker.', sampleValue: '"Cobras CC (U-16)"' },
       { name: 'sportType', type: 'string', required: true, description: 'The sports category (Default: Cricket).', sampleValue: '"Cricket"' },
-      { name: 'contactPerson', type: 'string', required: true, description: 'Coordinating coach or manager.', sampleValue: '"Stuart Broad"' },
+      { name: 'contactPerson', type: 'string', required: true, description: 'Coordinating coach or manager.', sampleValue: '"Tomba Singh"' },
       { name: 'customerId', type: 'string', required: true, description: 'Corresponding billing entity ID.', sampleValue: '"cust_stuart_b"' },
       { name: 'athletesCount', type: 'int', required: true, description: 'Total members registered to the roster.', sampleValue: '18' },
       { name: 'branchId', type: 'string', required: true, description: 'Physical branch/closet coordinator.', sampleValue: '"closet_melbourne"' },
@@ -333,7 +333,7 @@ export const COLLECTIONS_DATA: CollectionSchema[] = [
       { name: 'type', type: 'string', required: true, description: 'Cashbook direction indicator.', sampleValue: '"credit"' },
       { name: 'status', type: 'string', required: true, description: 'Reconciliation indicator.', sampleValue: '"cleared"' },
       { name: 'date', type: 'timestamp', required: true, description: 'Payment processing date.', sampleValue: 'Timestamp' },
-      { name: 'notes', type: 'string', required: false, description: 'Ledger footnotes.', sampleValue: '"Second half settlement deposit Victorian CC"' }
+      { name: 'notes', type: 'string', required: false, description: 'Ledger footnotes.', sampleValue: '"Second half settlement deposit Manipur Cricket Academy"' }
     ],
     relationships: [
       { source: 'transactions.invoiceId', target: 'invoices.id', type: '1:N', description: 'Slices debt outstanding counters.' }

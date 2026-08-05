@@ -123,12 +123,12 @@ const SEED_PRINT_JOBS: PrintJob[] = [
   {
     id: "PRNT-801",
     orderId: "TOTT-2026-9501",
-    customerName: "Victorian Cricket Academy",
-    teamName: "VCA Chargers",
+    customerName: "Manipur Cricket Academy (Imphal)",
+    teamName: "MCA Chargers",
     printingType: "Sublimation printing",
     status: "Printing",
     artworkUrl: "https://images.unsplash.com/photo-1544033527-b192daee1f5b?w=600&auto=format&fit=crop&q=60",
-    artworkFilename: "vca_chargers_jersey_front_vector_v2.ai",
+    artworkFilename: "mca_chargers_jersey_front_vector_v2.ai",
     colorsUsed: ["Navy Blue", "Metallic Gold", "White"],
     assignedStaff: "Vijay Merchant",
     dueDate: "2026-05-29",
@@ -150,12 +150,12 @@ const SEED_PRINT_JOBS: PrintJob[] = [
   {
     id: "PRNT-802",
     orderId: "TOTT-2026-9515",
-    customerName: "Melbourne Stars Club",
-    teamName: "Melbourne Stars Juniors",
+    customerName: "Don Bosco School Sports Club (Yaiskul)",
+    teamName: "Don Bosco Juniors",
     printingType: "Screen printing",
     status: "Screen Preparation",
     artworkUrl: "https://images.unsplash.com/photo-1530541930197-ff16ac917b0e?w=600&auto=format&fit=crop&q=60",
-    artworkFilename: "stars_crest_screen_logo_v1.pdf",
+    artworkFilename: "don_bosco_crest_screen_logo_v1.pdf",
     colorsUsed: ["Emerald Green", "Lime Green", "White"],
     assignedStaff: "Sarah Printworks",
     dueDate: "2026-05-31",
@@ -178,12 +178,12 @@ const SEED_PRINT_JOBS: PrintJob[] = [
   {
     id: "PRNT-803",
     orderId: "TOTT-2026-9524",
-    customerName: "Melton Cobras Cricket Club",
-    teamName: "Melbourne Cobras Seniors",
+    customerName: "Imphal Eastern Youth Sports Club",
+    teamName: "Imphal Eastern Seniors",
     printingType: "Heat transfer/vinyl printing",
     status: "Artwork Received",
     artworkUrl: "https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?w=600&auto=format&fit=crop&q=60",
-    artworkFilename: "cobras_sponsor_vinyl.cdr",
+    artworkFilename: "imphal_eastern_sponsor_vinyl.cdr",
     colorsUsed: ["Gold", "Pitch Black"],
     assignedStaff: "Sarah Printworks",
     dueDate: "2026-05-27",
@@ -275,7 +275,13 @@ export const PrintingSublimationView: React.FC<{
     // 1. Setup Materials Listener
     const localMaterials = localStorage.getItem('printing_materials');
     if (localMaterials) {
-      setMaterials(JSON.parse(localMaterials));
+      try {
+        setMaterials(JSON.parse(localMaterials));
+      } catch (e) {
+        console.error("Failed to parse printing_materials:", e);
+        setMaterials(SEED_MATERIALS);
+        localStorage.setItem('printing_materials', JSON.stringify(SEED_MATERIALS));
+      }
     } else {
       setMaterials(SEED_MATERIALS);
       localStorage.setItem('printing_materials', JSON.stringify(SEED_MATERIALS));
@@ -327,7 +333,13 @@ export const PrintingSublimationView: React.FC<{
     function fallbackToLocal() {
       const localJobs = localStorage.getItem('printing_jobs');
       if (localJobs) {
-        setPrintJobs(JSON.parse(localJobs));
+        try {
+          setPrintJobs(JSON.parse(localJobs));
+        } catch (e) {
+          console.error("Failed to parse printing_jobs:", e);
+          setPrintJobs(SEED_PRINT_JOBS);
+          localStorage.setItem('printing_jobs', JSON.stringify(SEED_PRINT_JOBS));
+        }
       } else {
         setPrintJobs(SEED_PRINT_JOBS);
         localStorage.setItem('printing_jobs', JSON.stringify(SEED_PRINT_JOBS));
