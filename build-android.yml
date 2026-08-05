@@ -33,7 +33,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Dependencies
+      - name: Install Dependencies & Tauri CLI
         run: |
           npm ci
           npm install -D @tauri-apps/cli@latest
