@@ -64,12 +64,9 @@ jobs:
         run: |
           if [ ! -d "src-tauri/gen/android" ]; then
             # run the android init in non-interactive mode
-            npx @tauri-apps/cli android init --no-interactive
-          fi
-
+            npx @tauri-apps/cli init ... --no-interactive -> npx @tauri-apps/cli init --ci ...
       - name: Build Android APK
-        run: npx @tauri-apps/cli android build --apk
-
+        run: npx @tauri-apps/cli android init --no-interactive -> npx @tauri-apps/cli android init --ci
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
