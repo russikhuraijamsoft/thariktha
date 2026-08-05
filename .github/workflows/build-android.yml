@@ -58,6 +58,48 @@ jobs:
             npx @tauri-apps/cli android init --ci
           fi
 
+      - name: Set Tauri bundle identifier
+        run: |
+          IDENT="com.russikhuraijamsoft.cricketcloset.erp"
+          echo "Setting Tauri bundle identifier to $IDENT"
+
+          if [ -f src-tauri/tauri.conf.json ]; then
+            node -e "const fs=require('fs');const f='src-tauri/tauri.conf.json';let c=JSON.parse(fs.readFileSync(f,'utf8'));c.tauri=c.tauri||{};c.tauri.bundle=c.tauri.bundle||{};c.tauri.bundle.identifier='"$IDENT"';fs.writeFileSync(f,JSON.stringify(c,null,2));console.log('Updated',f);"
+
+          elif [ -f src-tauri/tauri.conf.toml ]; then
+            # Update or append identifier in TOML without external dependencies
+            if grep -q '^identifier' src-tauri/tauri.conf.toml; then
+              sed -i "s/^identifier.*/identifier = \"$IDENT\"/" src-tauri/tauri.conf.toml
+            else
+              if grep -q '^\[tauri\.bundle\]' src-tauri/tauri.conf.toml; then
+                awk -v id="$IDENT" 'BEGIN{p=0} /^\[tauri\.bundle\]/{print; p=1; next} {print} END{if(p==0) {print "[tauri.bundle]"; print "identifier = \"" id "\"" }}' src-tauri/tauri.conf.toml > /tmp/t && mv /tmp/t src-tauri/tauri.conf.toml
+              else
+                cat >> src-tauri/tauri.conf.toml <<TOML
+
+[tauri.bundle]
+identifier = "$IDENT"
+TOML
+              fi
+            fi
+
+          else
+            echo "No existing tauri config found; creating src-tauri/tauri.conf.json"
+            mkdir -p src-tauri
+            cat > src-tauri/tauri.conf.json <<'JSON'
+{
+  "package": {
+    "productName": "Cricket-Closet-ERP",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "bundle": {
+      "identifier": "com.russikhuraijamsoft.cricketcloset.erp"
+    }
+  }
+}
+JSON
+          fi
+
       - name: Build Android APK
         run: npx @tauri-apps/cli android build --apk
 
