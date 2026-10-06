@@ -8,6 +8,7 @@ import {
   Check, MapPin, User, Mail, ShieldAlert, Key, HelpCircle,
   Printer, Wrench, FileText, HardDrive
 } from 'lucide-react';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface MainAppShellProps {
   activeTab: 'dashboard' | 'orders' | 'inventory' | 'manufacturing' | 'printing' | 'servicing' | 'notifications' | 'customers' | 'billing' | 'staff' | 'routing' | 'architecture' | 'reports' | 'settings' | 'proposal' | 'drive';
@@ -383,10 +384,18 @@ export const MainAppShell: React.FC<MainAppShellProps> = ({
             isLight ? 'bg-white/95 border-neutral-200/80 shadow-sm shadow-neutral-100/30' : 'bg-neutral-900/95 border-neutral-800'
           }`} id="top-navigation-bar">
             
-            {/* Left Portion: Breadcrumbs with path hierarchy */}
-            <div className="flex items-center gap-1.5 select-none font-mono text-xs">
-              <span className="text-neutral-400 hover:text-amber-500 transition-all cursor-pointer">ERP Channels</span>
-              <ChevronRight className="w-3.5 h-3.5 text-neutral-400 pointer-events-none" />
+            {/* Left Portion: Breadcrumbs with path hierarchy and mobile hamburger trigger */}
+            <div className="flex items-center gap-2 select-none font-mono text-xs">
+              <button
+                type="button"
+                onClick={() => setIsMobileSidebarOpen(true)}
+                className="lg:hidden p-2 rounded-xl bg-neutral-800 text-neutral-300 hover:text-white hover:bg-neutral-700 transition cursor-pointer"
+                title="Toggle Menu"
+              >
+                <Menu className="w-4 h-4 text-amber-400" />
+              </button>
+              <span className="text-neutral-400 hover:text-amber-500 transition-all cursor-pointer hidden sm:inline">ERP Channels</span>
+              <ChevronRight className="w-3.5 h-3.5 text-neutral-400 pointer-events-none hidden sm:inline" />
               <strong className={`font-black uppercase tracking-wider ${isLight ? 'text-neutral-900' : 'text-yellow-500'}`}>
                 {getTabBreadcrumb()}
               </strong>
@@ -471,8 +480,11 @@ export const MainAppShell: React.FC<MainAppShellProps> = ({
             </div>
 
             {/* Right Portion: Controls grid */}
-            <div className="flex items-center gap-3.5 justify-end">
+            <div className="flex items-center gap-2.5 sm:gap-3.5 justify-end">
               
+              {/* Standalone PWA Install Trigger Button */}
+              <PWAInstallButton variant="nav" />
+
               {/* Branch Scope Display Selection Overlay (Notion layout style) */}
               <div className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-mono transition-all ${
                 isLight ? 'bg-neutral-50 border-neutral-200/80 text-neutral-700' : 'bg-neutral-950 border-neutral-800 text-neutral-400'

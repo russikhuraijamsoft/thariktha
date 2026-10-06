@@ -11,6 +11,7 @@ import { erpIntegrationService } from '../services/erpIntegrationService';
 import { doc, getDoc, setDoc, updateDoc, collection, addDoc, getDocs } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserRole, UserProfile } from '../types/auth';
+import { PWAInstallModal } from './PWAInstallModal';
 
 interface SettingsViewProps {
   branchScope: 'Melbourne Closets' | 'London Closets';
@@ -71,6 +72,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalledApp, setIsInstalledApp] = useState(false);
   const [cacheSize, setCacheSize] = useState('2.84 MB');
+  const [showPWAModal, setShowPWAModal] = useState(false);
 
   useEffect(() => {
     // Populate queue List
@@ -1766,9 +1768,14 @@ Designed & verified on GCP App Engine.
                     </span>
 
                     {isInstalledApp ? (
-                      <span className="bg-neutral-900 text-white border border-neutral-850 px-3 py-1.5 rounded-xl text-[10px] font-mono font-bold flex items-center gap-1">
-                        <Check className="w-3.5 h-3.5 text-emerald-400" /> Standalone PWA
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowPWAModal(true)}
+                        className="bg-neutral-900 hover:bg-neutral-800 text-white border border-neutral-700 px-3 py-1.5 rounded-xl text-[10px] font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                      >
+                        <Check className="w-3.5 h-3.5 text-emerald-400" /> 
+                        <span>Standalone Active (App Info)</span>
+                      </button>
                     ) : (
                       <button
                         type="button"
@@ -1777,23 +1784,24 @@ Designed & verified on GCP App Engine.
                             deferredPrompt.prompt();
                             deferredPrompt.userChoice.then((choiceResult: any) => {
                               if (choiceResult.outcome === 'accepted') {
-                                console.log('[PWA] User accepted homescreen installation prompt');
                                 setIsInstalledApp(true);
                               }
                               setDeferredPrompt(null);
                             });
                           } else {
-                            triggerSuccessBanner("Desktop option: Pin app to shelf or share to home-screen to install standalone ERP.");
+                            setShowPWAModal(true);
                           }
                         }}
-                        className="bg-neutral-950 hover:bg-neutral-900 text-white hover:text-[#E5B84B] border border-neutral-800 px-3 py-1.5 rounded-xl text-[10px] font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                        className="bg-neutral-950 hover:bg-neutral-900 text-[#E5B84B] hover:text-white border border-amber-500/40 px-3.5 py-1.5 rounded-xl text-[10px] font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-sm"
                       >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Install App</span>
+                        <Download className="w-3.5 h-3.5 text-[#E5B84B]" />
+                        <span>Install App (Web • Android • iOS)</span>
                       </button>
                     )}
                   </div>
                 </div>
+
+                <PWAInstallModal isOpen={showPWAModal} onClose={() => setShowPWAModal(false)} />
 
                 {/* Simulated Modes Controls */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono text-xs">

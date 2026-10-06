@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import brandLogo from '../assets/images/talk_of_the_town_logo_1780894452079.png';
+import { PWAInstallButton } from './PWAInstallButton';
 
 export const AuthScreen: React.FC = () => {
   const { login, register, resetPassword, loginWithGoogle, isSandboxMode, setIsSandboxMode, quickSandboxLogin } = useAuth();
@@ -180,7 +181,16 @@ export const AuthScreen: React.FC = () => {
       {/* Auth visual panel right */}
       <div className="w-full md:w-1/2 p-6 lg:p-12 self-stretch flex flex-col justify-center bg-neutral-900/90 border border-neutral-800 rounded-2xl md:rounded-l-none md:rounded-r-2xl shadow-xl max-w-lg md:max-w-none relative z-10">
         
-        <div className="space-y-5">
+        <div className="space-y-4">
+
+          {/* Standalone App Banner Bar */}
+          <div className="flex items-center justify-between p-2.5 bg-neutral-950/70 border border-neutral-800 rounded-xl">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-[11px] font-mono text-neutral-300">Standalone App (Web • Android • iOS)</span>
+            </div>
+            <PWAInstallButton variant="nav" />
+          </div>
 
           {/* Quick Launch ERP Button */}
           <button
