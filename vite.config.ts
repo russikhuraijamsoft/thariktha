@@ -10,6 +10,10 @@ export default defineConfig(() => {
       react(),
       tailwindcss(),
       VitePWA({
+        // Workbox's terser render hook does not complete reliably on the supported
+        // Termux/Android toolchain. Keep the web build deterministic until a
+        // compatible PWA generation path is validated.
+        disable: true,
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'favicon.png', 'apple-touch-icon.png', 'icon.svg'],
         manifest: {
@@ -77,9 +81,11 @@ export default defineConfig(() => {
         },
         workbox: {
           maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          globPatterns: ['assets/**/*.{js,css,woff,woff2}', 'index.html', '*.{ico,png,svg}'],
+          globIgnores: ['**/*.map', '**/*.cjs', '**/server*', '**/api/**', '**/auth/**'],
+          cleanupOutdatedCaches: true,
           navigateFallback: '/index.html',
-          navigateFallbackDenylist: [/^\/api\/.*/],
+          navigateFallbackDenylist: [/^\/api(?:\/|$)/, /^\/(?:auth|__|server-dist)(?:\/|$)/, /\.(?:cjs|map)$/],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -126,11 +132,14 @@ export default defineConfig(() => {
           ],
         },
         devOptions: {
-          enabled: true,
+          enabled: false,
           type: 'module',
         },
       }),
     ],
+    build: {
+      minify: 'esbuild' as const,
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

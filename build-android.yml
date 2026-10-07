@@ -1,54 +1,5 @@
-name: Build Android App
-
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
-
-jobs:
-  build-android:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install Rust target for Android
-        run: |
-          rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
-
-      - name: Setup Java JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Dependencies & Tauri CLI
-        run: |
-          npm ci
-          npm install -D @tauri-apps/cli@latest
-
-      - name: Build Web Frontend
-        run: npm run build
-
-      - name: Initialize Tauri Android (if not present)
-        run: npx @tauri-apps/cli android init --no-prompt || true
-
-      - name: Build Android APK
-        run: npx @tauri-apps/cli android build
-
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Cricket-Closet-ERP-Android-APK
-          path: src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
+# Historical root-level workflow stub. GitHub executes only .github/workflows/.
+# Canonical manual Android workflow: .github/workflows/build-android.yml
+# Packaging requires a reviewed checked-in native project/lockfile and a hosted
+# HTTPS VITE_API_BASE_URL. No server code is included in web/native dist assets.
+# Native installation, signing and Firebase OAuth callbacks are not verified.
