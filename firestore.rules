@@ -1,198 +1,35 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // 1. Global Safety Net: Default Deny All
-    match /{document=**} {
-      allow read, write: if false;
+    function signedIn() { return request.auth != null; }
+    function profileExists() { return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function profile() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function active() {
+      return profileExists() && profile().status == 'active'
+        && profile().roleId in ['OWNER','ADMIN','MANAGER','SALES','INVENTORY','PURCHASING','PRODUCTION','PRINTING','SERVICE','ACCOUNTING','VIEWER']
+        && profile().companyId is string && profile().branchId is string;
     }
-
-    // ==========================================
-    // GLOBAL REUSABLE HELPER FUNCTIONS
-    // ==========================================
-    
-    function isSignedIn() {
-      return request.auth != null;
+    function scoped() { return active() && resource.data.companyId == profile().companyId && resource.data.branchId == profile().branchId; }
+    function manager() { return active() && profile().roleId in ['OWNER','ADMIN','MANAGER']; }
+    // Server authenticates tokens and derives role/scope from users, then uses atomic
+    // Admin SDK commands. Clients cannot bypass that boundary, including OWNER.
+    match /users/{uid} {
+      allow get: if (signedIn() && request.auth.uid == uid) || (manager() && scoped());
+      allow list: if manager() && scoped();
+      allow write: if false;
     }
-
-    function incoming() {
-      return request.resource.data;
+    match /{entity}/{recordId} {
+      allow read: if entity in ['products','customers','suppliers','quotations','orders',
+        'deliveryorders','invoices','rfqs','purchaseorders','grns','purchasebills',
+        'inventoryadjustments','stocktransfers','inventory','inventorytransactions',
+        'manufacturing_jobs','printing_jobs','repair_jobs','expenses',
+        'teams','analytics','manufacturing_workflows'] && scoped();
+      allow read: if entity == 'transactions' && manager() && scoped();
+      allow read: if entity in ['auditlogs','roles','settings'] && manager() && scoped();
+      allow read: if entity == 'notifications' && scoped() &&
+        (resource.data.recipientId == request.auth.uid || (resource.data.recipientId == 'all_branch_managers' && manager()));
+      allow write: if false;
     }
-
-    function existing() {
-      return resource.data;
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    function isTimestamp(val) {
-      return val is timestamp;
-    }
-
-    // Role Fetching Logic
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    function getUserRole() {
-      return getUserData().roleId;
-    }
-
-    function getUserBranch() {
-      return getUserData().branchId;
-    }
-
-    function isAdmin() {
-      return isSignedIn() && (
-        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
-        getUserRole() in ['super_admin', 'admin']
-      );
-    }
-
-    function isBranchManager() {
-      return isSignedIn() && (
-        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
-        getUserRole() in ['manager', 'branch_manager', 'super_admin', 'admin']
-      );
-    }
-
-    function isStaff() {
-      return isSignedIn() && (
-        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
-        getUserRole() in ['super_admin', 'admin', 'manager', 'branch_manager', 'manufacturing_staff', 'printing_staff', 'cashier', 'inventory_manager', 'staff'] ||
-        getUserRole() != 'customer'
-      );
-    }
-
-    // ==========================================
-    // 2. ERP CORE COLLECTIONS
-    // ==========================================
-
-    // --- USERS COLLECTION ---
-    match /users/{userId} {
-      allow get: if isSignedIn();
-      allow list: if isStaff();
-      allow create, update: if isSignedIn() && (userId == request.auth.uid || isStaff());
-      allow delete: if isAdmin();
-    }
-
-    // --- ROLES COLLECTION ---
-    match /roles/{roleId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    // --- CUSTOMERS COLLECTION ---
-    match /customers/{customerId} {
-      allow read: if isSignedIn();
-      allow create, update: if isStaff();
-      allow delete: if isAdmin();
-    }
-
-    // --- TEAMS COLLECTION ---
-    match /teams/{teamId} {
-      allow read: if isSignedIn();
-      allow create, update: if isStaff();
-      allow delete: if isAdmin();
-    }
-
-    // --- SUPPLIERS COLLECTION ---
-    match /suppliers/{supplierId} {
-      allow read: if isSignedIn();
-      allow create, update: if isStaff();
-      allow delete: if isAdmin();
-    }
-
-    // --- PRODUCTS COLLECTION ---
-    match /products/{productId} {
-      allow read: if isSignedIn();
-      allow create, update: if isStaff();
-      allow delete: if isAdmin();
-    }
-
-    // --- INVENTORY COLLECTION ---
-    match /inventory/{inventoryId} {
-      allow read: if isSignedIn();
-      allow create, update: if isStaff();
-      allow delete: if isAdmin();
-    }
-
-    // --- ORDERS COLLECTION ---
-    match /orders/{orderId} {
-      allow read: if isSignedIn();
-      allow create, update: if isStaff() || isSignedIn();
-      allow delete: if isAdmin();
-    }
-
-    // --- INVOICES COLLECTION ---
-    match /invoices/{invoiceId} {
-      allow read: if isSignedIn();
-      allow create, update: if isStaff();
-      allow delete: if isAdmin();
-    }
-
-    // --- TRANSACTIONS COLLECTION ---
-    match /transactions/{transactionId} {
-      allow read: if isSignedIn();
-      allow create, update: if isStaff();
-      allow delete: if isAdmin();
-    }
-
-    // --- JOBS COLLECTION ---
-    match /jobs/{jobId} {
-      allow read: if isSignedIn();
-      allow create, update: if isStaff();
-      allow delete: if isAdmin();
-    }
-
-    // --- MANUFACTURING JOBS ---
-    match /manufacturing_jobs/{jobId} {
-      allow read: if isSignedIn();
-      allow create, update: if isStaff();
-      allow delete: if isAdmin();
-    }
-
-    // --- PRINTING JOBS ---
-    match /printing_jobs/{jobId} {
-      allow read: if isSignedIn();
-      allow create, update: if isStaff();
-      allow delete: if isAdmin();
-    }
-
-    // --- REPAIR JOBS ---
-    match /repair_jobs/{jobId} {
-      allow read: if isSignedIn();
-      allow create, update: if isStaff();
-      allow delete: if isAdmin();
-    }
-
-    // --- NOTIFICATIONS COLLECTION ---
-    match /notifications/{notifId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
-    }
-
-    // --- ANALYTICS COLLECTION ---
-    match /analytics/{analyticsId} {
-      allow read: if isSignedIn();
-      allow create, update: if isStaff();
-      allow delete: if isAdmin();
-    }
-
-    // --- MANUFACTURING WORKFLOWS ---
-    match /manufacturing_workflows/{workflowId} {
-      allow read: if isSignedIn();
-      allow create, update: if isStaff();
-      allow delete: if isAdmin();
-    }
-
-    // --- SETTINGS COLLECTION ---
-    match /settings/{settingId} {
-      allow read: if isSignedIn();
-      allow create, update: if isStaff();
-      allow delete: if isAdmin();
-    }
+    match /{document=**} { allow read, write: if false; }
   }
 }
