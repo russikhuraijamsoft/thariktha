@@ -34,7 +34,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Setup Rust Toolchain
@@ -44,7 +44,7 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev build-essential curl wget file libxdo-dev libayatana-appindicator3-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev build-essential curl wget file libxdo-dev
 
       - name: Install Node Dependencies & Tauri CLI
         run: |
@@ -68,25 +68,24 @@ jobs:
               --ci
           fi
 
-          # Update or configure bundle identifier
+          # Tauri v2 uses top-level `identifier` and `bundle` keys.
           if [ -f "src-tauri/tauri.conf.json" ]; then
             node -e "
               const fs = require('fs');
               const p = 'src-tauri/tauri.conf.json';
-              let c = JSON.parse(fs.readFileSync(p, 'utf8'));
-              c.tauri = c.tauri || {};
-              c.tauri.bundle = c.tauri.bundle || {};
-              c.tauri.bundle.identifier = '$IDENT';
-              c.tauri.bundle.active = true;
-              c.tauri.bundle.icon = [
+              const c = JSON.parse(fs.readFileSync(p, 'utf8'));
+              c.identifier = '$IDENT';
+              c.bundle = c.bundle || {};
+              c.bundle.active = true;
+              c.bundle.icon = [
                 'icons/32x32.png',
                 'icons/128x128.png',
                 'icons/128x128@2x.png',
                 'icons/icon.icns',
                 'icons/icon.ico'
               ];
-              fs.writeFileSync(p, JSON.stringify(c, null, 2));
-              console.log('Updated bundle identifier in', p);
+              fs.writeFileSync(p, JSON.stringify(c, null, 2) + '\\n');
+              console.log('Updated Tauri v2 bundle configuration in', p);
             "
           fi
 
