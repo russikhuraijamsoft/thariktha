@@ -322,7 +322,51 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
   };
 
   useEffect(() => {
-    fetchOrdersFromAzure();
+    setIsLoading(true);
+
+    if (isCloudConnected) {
+      const unsub = onSnapshot(collection(db, 'orders'), (snapshot) => {
+        const list: ERPOrderExtended[] = [];
+        snapshot.forEach((docSnap) => {
+          const order = docSnap.data();
+          list.push({
+            id: docSnap.id,
+            customerId: order.customerId || '',
+            customerName: order.customerName || order.customer || 'Unknown Client',
+            phone: order.phone || '',
+            teamName: order.teamName || order.team || 'Cricket Club',
+            branchId: order.branchId || branchScope,
+            orderType: order.orderType || (order.itemType === 'bat' ? 'Willow Bats' : 'Custom Jersey'),
+            status: order.status || 'pending',
+            workflowStatus: order.workflowStatus || 'Inquiry',
+            paymentStatus: order.paymentStatus || 'unpaid',
+            totalAmount: Number(order.totalAmount || 0),
+            advancePayment: Number(order.advancePayment || 0),
+            remainingPayment: Number(order.totalAmount || 0) - Number(order.advancePayment || 0),
+            promisedDate: order.promisedDate || '',
+            notes: order.notes || '',
+            assignedStaffId: order.assignedStaffId || '',
+            assignedStaffName: order.assignedStaffName || 'Unassigned',
+            attachments: order.attachments || [],
+            comments: order.comments || [],
+            createdAt: order.createdAt || new Date().toISOString(),
+            updatedAt: order.updatedAt || new Date().toISOString(),
+            orderItems: order.orderItems || []
+          } as ERPOrderExtended);
+        });
+
+        const filtered = list.filter(o => !branchScope || o.branchId === branchScope || o.branchId === `${branchScope} Closets`);
+        setOrders(filtered);
+        setIsLoading(false);
+      }, (error) => {
+        console.error("Firestore orders listener error:", error);
+        loadLocalFallbacks();
+      });
+
+      return () => unsub();
+    } else {
+      loadLocalFallbacks();
+    }
   }, [branchScope]);
 
   const loadLocalFallbacks = () => {
@@ -332,99 +376,12 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
       try {
         setOrders(JSON.parse(local));
       } catch (e) {
-        console.error("Failed to parse local cached orders list:", e);
-        // Fall back to seed orders below
-        seedOrders();
+        setOrders([]);
       }
     } else {
-      seedOrders();
+      setOrders([]);
     }
-  };
-
-  const seedOrders = () => {
-      // Seed original custom orders
-      const seed: ERPOrderExtended[] = [
-        {
-          id: "TOTT-2026-9501",
-          customerId: "CUST-001",
-          customerName: "Manipur Cricket Academy (Imphal)",
-          phone: "+91-385-2441011",
-          teamName: "MCA Super Giants",
-          branchId: "Melbourne Closets",
-          orderType: "Sublimation Jerseys",
-          status: "pending",
-          workflowStatus: "Design Approval",
-          paymentStatus: "partially_paid",
-          totalAmount: 900.00,
-          advancePayment: 450.00,
-          remainingPayment: 450.00,
-          promisedDate: "2026-06-12",
-          notes: "Neon green sublimation stripes on gold base. Heavy moisture-wick fabric requested.",
-          assignedStaffId: "staff_printer_sarah",
-          assignedStaffName: "Sarah Printworks",
-          attachments: [
-            { id: '1', name: 'Imphal_Neon_Stripes_Vector.png', url: VECTOR_JERSEY_TEMPLATES[0].url, size: '2.4 MB', uploadedAt: '10 hours ago' }
-          ],
-          comments: [
-            { id: 'c1', author: 'Biren Singh', role: 'Super Admin', comment: 'Client confirmed double collar seam.', timestamp: '2026-05-24 14:22' }
-          ],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          orderItems: [
-            {
-              id: 'item1',
-              name: 'Sublimated Academy Shirt',
-              qty: 20,
-              price: 45.00,
-              category: 'jersey',
-              sizes: { S: 5, M: 8, L: 5, XL: 2, XXL: 0 },
-              playerRoster: [
-                { name: 'Chungkham', number: '49', size: 'M' },
-                { name: 'Laishram', number: '31', size: 'L' }
-              ]
-            }
-          ]
-        },
-        {
-          id: "TOTT-2026-9502",
-          customerId: "CUST-002",
-          customerName: "Imphal Eastern Youth Sports Club",
-          phone: "+91-385-2442221",
-          teamName: "Imphal Eastern Division A",
-          branchId: "Melbourne Closets",
-          orderType: "Complete Cricket Kit",
-          status: "printing",
-          workflowStatus: "Printing",
-          paymentStatus: "paid",
-          totalAmount: 1350.00,
-          advancePayment: 1350.00,
-          remainingPayment: 0,
-          promisedDate: "2026-06-15",
-          notes: "Heavy sublimation. Matching yellow side stitches. Numbers on sleeves 3 inch tall.",
-          assignedStaffId: "staff_printer_sarah",
-          assignedStaffName: "Sarah Printworks",
-          attachments: [
-            { id: '2', name: 'Imphal_Eastern_Ribbon_Spec.png', url: VECTOR_JERSEY_TEMPLATES[1].url, size: '1.8 MB', uploadedAt: '1 day ago' }
-          ],
-          comments: [],
-          createdAt: new Date(Date.now() - 48*60*60*1000).toISOString(),
-          updatedAt: new Date().toISOString(),
-          orderItems: [
-            {
-              id: 'item2',
-              name: 'Platinum sublimated tournament shirt',
-              qty: 30,
-              price: 45.00,
-              category: 'jersey',
-              sizes: { S: 10, M: 10, L: 5, XL: 4, XXL: 1 },
-              playerRoster: []
-            }
-          ]
-        }
-      ];
-      localStorage.setItem(`tott_cricket_closet_orders_${branchScope}`, JSON.stringify(seed));
-      setOrders(seed);
-      setIsLoading(false);
+    setIsLoading(false);
   };
 
   // --- CREATE NEW ORDER ---
@@ -483,6 +440,10 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
     };
 
     try {
+      if (isCloudConnected) {
+        await setDoc(doc(db, 'orders', orderId), orderPayload);
+      }
+
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -606,6 +567,15 @@ export const OrdersView: React.FC<{ branchScope: 'Melbourne Closets' | 'London C
     const newComments = [...(orderToUpdate.comments || []), updatedLogComment];
 
     try {
+      if (isCloudConnected) {
+        await updateDoc(doc(db, 'orders', orderId), {
+          status: updatedBaseStatus,
+          workflowStatus: targetStep,
+          comments: newComments,
+          updatedAt: new Date().toISOString()
+        });
+      }
+
       await fetch(`/api/orders/${orderId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

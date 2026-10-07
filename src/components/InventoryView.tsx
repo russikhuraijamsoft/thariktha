@@ -89,171 +89,8 @@ const PRESET_STOCK_IMAGES = [
   { label: 'Neon Protective Pad', url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&auto=format&fit=crop&q=80' }
 ];
 
-// Initial dataset loaded from your stock lists and PDFs
-const SEED_INVENTORIES: ProductItem[] = [
-  {
-    sku: "GLV-TON-PRO",
-    barcode: "8901234500018",
-    name: "SS TON PRO 1.0 Batting Gloves",
-    brand: "TON",
-    category: "protective",
-    purchasePrice: 2200,
-    sellingPrice: 5460,
-    currentStock: 24,
-    minimumStock: 8,
-    supplier: "Sareen Sports Industries UP",
-    productImage: tonProGloves,
-    description: "Syllable-pattern premium test grade glove with soft-fill block articulation and Pittards super-grip palm sheep skin.",
-    status: "active",
-    branchId: "Melbourne Closets",
-    createdAt: "25-Jan-2026",
-    updatedAt: "25-May-2026"
-  },
-  {
-    sku: "GLV-SS-SKY10",
-    barcode: "8901234500025",
-    name: "SS SKY 1.0 Custom Gloves",
-    brand: "SS",
-    category: "protective",
-    purchasePrice: 2000,
-    sellingPrice: 4820,
-    currentStock: 12,
-    minimumStock: 5,
-    supplier: "Sunridge Sports",
-    productImage: ssSkyGloves,
-    description: "Vibrant high-contrast edition with custom joint mechanics, custom orange & lime layout for explosive wrist speed.",
-    status: "active",
-    branchId: "Melbourne Closets",
-    createdAt: "15-Jan-2026",
-    updatedAt: "25-May-2026"
-  },
-  {
-    sku: "GLV-TON-RO45",
-    barcode: "8901234500032",
-    name: "SS TON RO - 45 Test Gloves",
-    brand: "TON",
-    category: "protective",
-    purchasePrice: 2100,
-    sellingPrice: 5000,
-    currentStock: 18,
-    minimumStock: 6,
-    supplier: "Sareen Sports Industries",
-    productImage: "https://images.unsplash.com/photo-1544033527-b192daee1f5b?w=600&auto=format&fit=crop&q=80",
-    description: "Sleek Gray & White high performance cricket batting glove carrying multi-shield impact guards.",
-    status: "active",
-    branchId: "Melbourne Closets",
-    createdAt: "15-Jan-2026",
-    updatedAt: "25-May-2026"
-  },
-  {
-    sku: "GLV-TON-PE",
-    barcode: "8901234500049",
-    name: "TON Player Edition Batting Gloves",
-    brand: "TON",
-    category: "protective",
-    purchasePrice: 1500,
-    sellingPrice: 3740,
-    currentStock: 6,
-    minimumStock: 8,
-    supplier: "Sareen Sports Industries",
-    productImage: "https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?w=600&auto=format&fit=crop&q=80",
-    description: "Classic robust block-fill batting glove designed for supreme durability and side-mesh crease ventilation.",
-    status: "active",
-    branchId: "London Closets",
-    createdAt: "15-Jan-2026",
-    updatedAt: "25-May-2026"
-  },
-  {
-    sku: "BAT-TON-SILV",
-    barcode: "8901234500056",
-    name: "Ton Silver Edition English Willow Bat",
-    brand: "TON",
-    category: "bats",
-    purchasePrice: 8500,
-    sellingPrice: 18000,
-    currentStock: 5,
-    minimumStock: 2,
-    supplier: "Sareen Sports UP India",
-    productImage: "https://images.unsplash.com/photo-1530541930197-ff16ac917b0e?w=600&auto=format&fit=crop&q=80",
-    description: "Select Grade-A narrow grains English Willow bat with responsive sweetspot and thick concave profile.",
-    status: "active",
-    branchId: "Melbourne Closets",
-    createdAt: "06-Jan-2026",
-    updatedAt: "25-May-2026"
-  },
-  {
-    sku: "BAT-RET-STAR",
-    barcode: "8901234500063",
-    name: "Retro 5 Star E.W. CR. Bat",
-    brand: "RETRO",
-    category: "bats",
-    purchasePrice: 9500,
-    sellingPrice: 20000,
-    currentStock: 5,
-    minimumStock: 2,
-    supplier: "Smart Sports Technologies",
-    productImage: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&auto=format&fit=crop&q=80",
-    description: "Limited edition classic profile bat carrying five-star moisture treatment and balanced pickup.",
-    status: "active",
-    branchId: "London Closets",
-    createdAt: "06-Jan-2026",
-    updatedAt: "25-May-2026"
-  },
-  {
-    sku: "BAG-DUFF-WH20",
-    barcode: "8901234500070",
-    name: "Kit Bag - Duffle Wheel Player 2.0",
-    brand: "SS",
-    category: "bags",
-    purchasePrice: 1900,
-    sellingPrice: 4300,
-    currentStock: 10,
-    minimumStock: 4,
-    supplier: "Sareen Sports Industries",
-    productImage: "https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?w=600&auto=format&fit=crop&q=80",
-    description: "Industrial strength double-compartment duffle wheels bag with wet shoe separators and dedicated bat sheath.",
-    status: "active",
-    branchId: "Melbourne Closets",
-    createdAt: "06-Jan-2026",
-    updatedAt: "25-May-2026"
-  },
-  {
-    sku: "BAL-SS-GUTSY",
-    barcode: "8901234500087",
-    name: "Ball - SS Gutsy (Alum Tanned)",
-    brand: "SS",
-    category: "balls",
-    purchasePrice: 160,
-    sellingPrice: 410,
-    currentStock: 100,
-    minimumStock: 25,
-    supplier: "Sareen Sports UP India",
-    productImage: "https://images.unsplash.com/photo-1530541930197-ff16ac917b0e?w=600&auto=format&fit=crop&q=80",
-    description: "Premium grade alum-tanned 5.5oz leather ball with secure core stitching, high durability.",
-    status: "active",
-    branchId: "Melbourne Closets",
-    createdAt: "06-Jan-2026",
-    updatedAt: "25-May-2026"
-  },
-  {
-    sku: "SIG-3D-LET",
-    barcode: "9405001011",
-    name: "3D Letter Signage Stainless Steel LED",
-    brand: "Fastrack Signage",
-    category: "signage",
-    purchasePrice: 43200,
-    sellingPrice: 73200,
-    currentStock: 1,
-    minimumStock: 1,
-    supplier: "Fastrack Signage Imphal",
-    productImage: "https://images.unsplash.com/photo-1544033527-b192daee1f5b?w=600&auto=format&fit=crop&q=80",
-    description: "Tailored Stainless Steel lettering with premium backlit LED array designed for outdoor outlet canopy.",
-    status: "active",
-    branchId: "Melbourne Closets",
-    createdAt: "10-Jan-2026",
-    updatedAt: "10-Jan-2026"
-  }
-];
+// Initial empty dataset - no demo/fake business data
+const SEED_INVENTORIES: ProductItem[] = [];
 
 export const InventoryView: React.FC<{
   branchScope: 'Melbourne Closets' | 'London Closets';
@@ -401,10 +238,32 @@ export const InventoryView: React.FC<{
   };
 
   useEffect(() => {
-    fetchProductsFromAzure();
-    fetchPurchaseOrders();
-    fetchInventoryTransactions();
-    fetchAuditLogs();
+    setIsLoading(true);
+
+    if (isCloudConnected) {
+      const unsub = onSnapshot(collection(db, 'products'), (snapshot) => {
+        const list: ProductItem[] = [];
+        snapshot.forEach((d) => {
+          list.push({ id: d.id, ...d.data() } as ProductItem);
+        });
+        setProducts(list);
+        setIsLoading(false);
+      }, (error) => {
+        console.error("Firestore products listener error:", error);
+        fetchProductsFromAzure();
+      });
+
+      fetchPurchaseOrders();
+      fetchInventoryTransactions();
+      fetchAuditLogs();
+
+      return () => unsub();
+    } else {
+      fetchProductsFromAzure();
+      fetchPurchaseOrders();
+      fetchInventoryTransactions();
+      fetchAuditLogs();
+    }
 
     // Fetch local logs
     const localLogs = localStorage.getItem('erp_inventory_logs');
@@ -415,7 +274,7 @@ export const InventoryView: React.FC<{
         console.error("Failed to parse local inventory logs:", e);
       }
     }
-  }, []);
+  }, [branchScope]);
 
   const loadLocalFallback = () => {
     setIsLoading(true);
@@ -426,40 +285,20 @@ export const InventoryView: React.FC<{
       try {
         setProducts(JSON.parse(localProds));
       } catch (e) {
-        console.error("Failed to parse local cached products:", e);
-        setProducts(SEED_INVENTORIES);
-        localStorage.setItem('erp_products', JSON.stringify(SEED_INVENTORIES));
+        setProducts([]);
       }
     } else {
-      // Seed preset items inside local storage
-      localStorage.setItem('erp_products', JSON.stringify(SEED_INVENTORIES));
-      setProducts(SEED_INVENTORIES);
+      setProducts([]);
     }
 
     if (localLogs) {
       try {
         setLogs(JSON.parse(localLogs));
       } catch (e) {
-        console.error("Failed to parse local cached logs:", e);
+        setLogs([]);
       }
     } else {
-      const defaultLogs: InventoryLog[] = [
-        {
-          productId: "seed-log-1",
-          productName: "SS TON PRO 1.0 Batting Gloves",
-          sku: "GLV-TON-PRO",
-          type: "increase",
-          amount: 24,
-          previousStock: 0,
-          newStock: 24,
-          reason: "Bulk Purchase Received",
-          operator: profile?.name || "System Admin",
-          branchId: "Melbourne Closets",
-          timestamp: new Date().toISOString()
-        }
-      ];
-      localStorage.setItem('erp_inventory_logs', JSON.stringify(defaultLogs));
-      setLogs(defaultLogs);
+      setLogs([]);
     }
     setIsLoading(false);
   };
@@ -516,6 +355,11 @@ export const InventoryView: React.FC<{
     };
 
     try {
+      if (isCloudConnected) {
+        const prodDocId = selectedProduct?.id || productPayload.sku;
+        await setDoc(doc(db, 'products', prodDocId), { id: prodDocId, ...productPayload }, { merge: true });
+      }
+
       let isSuccess = false;
       if (selectedProduct && selectedProduct.id) {
         const response = await fetch(`/api/products/${selectedProduct.id}`, {
@@ -535,7 +379,7 @@ export const InventoryView: React.FC<{
 
       if (isSuccess) {
         await fetchProductsFromAzure();
-      } else {
+      } else if (!isCloudConnected) {
         // Fallback save locally
         let updatedList: ProductItem[] = [];
         if (selectedProduct) {
@@ -548,15 +392,17 @@ export const InventoryView: React.FC<{
       }
     } catch (err) {
       console.error("Error submitting product:", err);
-      // Fallback save locally
-      let updatedList: ProductItem[] = [];
-      if (selectedProduct) {
-        updatedList = products.map((p) => p.sku === selectedProduct.sku ? { ...productPayload } : p);
-      } else {
-        updatedList = [productPayload, ...products];
+      if (!isCloudConnected) {
+        // Fallback save locally
+        let updatedList: ProductItem[] = [];
+        if (selectedProduct) {
+          updatedList = products.map((p) => p.sku === selectedProduct.sku ? { ...productPayload } : p);
+        } else {
+          updatedList = [productPayload, ...products];
+        }
+        localStorage.setItem('erp_products', JSON.stringify(updatedList));
+        setProducts(updatedList);
       }
-      localStorage.setItem('erp_products', JSON.stringify(updatedList));
-      setProducts(updatedList);
     } finally {
       setFormModalOpen(false);
       setSelectedProduct(null);
@@ -589,12 +435,15 @@ export const InventoryView: React.FC<{
     if (window.confirm(`Are you sure you want to completely delete "${product.name}" from the active inventory list?`)) {
       setIsLoading(true);
       try {
+        if (isCloudConnected) {
+          await deleteDoc(doc(db, 'products', product.id || product.sku));
+        }
         const response = await fetch(`/api/products/${product.id}`, {
           method: 'DELETE'
         });
         if (response.ok) {
           await fetchProductsFromAzure();
-        } else {
+        } else if (!isCloudConnected) {
           // Local fallback
           const remaining = products.filter(p => p.sku !== product.sku);
           localStorage.setItem('erp_products', JSON.stringify(remaining));
@@ -602,10 +451,12 @@ export const InventoryView: React.FC<{
         }
       } catch (err) {
         console.error("Failed to delete product:", err);
-        // Local fallback
-        const remaining = products.filter(p => p.sku !== product.sku);
-        localStorage.setItem('erp_products', JSON.stringify(remaining));
-        setProducts(remaining);
+        if (!isCloudConnected) {
+          // Local fallback
+          const remaining = products.filter(p => p.sku !== product.sku);
+          localStorage.setItem('erp_products', JSON.stringify(remaining));
+          setProducts(remaining);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -982,9 +833,23 @@ export const InventoryView: React.FC<{
             <tbody className="divide-y divide-slate-100 text-sm">
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-mono">
-                    <span className="block text-2xl mb-2">📦</span>
-                    No product entries found matching query filters inside {branchScope}.
+                  <td colSpan={7} className="px-6 py-16 text-center text-slate-400 font-mono">
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <Boxes className="w-10 h-10 text-slate-300 stroke-[1.5]" />
+                      <span className="text-base font-bold text-slate-700">Stockroom Catalog is Empty</span>
+                      <p className="text-xs text-slate-500 max-w-sm">No inventory items or equipment registered yet. Click below to register cricket bats, balls, jerseys or protective gear.</p>
+                      <button
+                        onClick={() => {
+                          clearFormFields();
+                          setSelectedProduct(null);
+                          setFormModalOpen(true);
+                        }}
+                        className="mt-3 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>+ New Stock Product</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (

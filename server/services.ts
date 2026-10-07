@@ -11,19 +11,19 @@ export class ProductService {
       category: row.Category,
       price: row.Price,
       rawCost: row.RawCost,
-      barcode: row.Barcode || '8901234500018',
-      brand: row.Brand || 'SS',
-      purchasePrice: row.RawCost || 100,
-      sellingPrice: row.Price || 200,
-      currentStock: row.CurrentStock ?? 10,
-      minimumStock: row.MinimumStock ?? 5,
-      supplier: row.Supplier || 'Sareen Sports Industries',
-      productImage: row.ProductImage || '',
-      description: row.Description || 'Hand-selected premium cricket gear',
-      status: row.Status || 'active',
-      branchId: row.BranchID || 'Melbourne Closets',
-      createdAt: row.CreatedAt || new Date().toISOString(),
-      updatedAt: row.UpdatedAt || new Date().toISOString()
+      barcode: row.Barcode || row.barcode || '',
+      brand: row.Brand || row.brand || '',
+      purchasePrice: row.RawCost ?? row.purchasePrice ?? 0,
+      sellingPrice: row.Price ?? row.sellingPrice ?? 0,
+      currentStock: row.CurrentStock ?? row.currentStock ?? 0,
+      minimumStock: row.MinimumStock ?? row.minimumStock ?? 0,
+      supplier: row.Supplier || row.supplier || '',
+      productImage: row.ProductImage || row.productImage || '',
+      description: row.Description || row.description || '',
+      status: row.Status || row.status || 'active',
+      branchId: row.BranchID || row.branchId || 'Melbourne Closets',
+      createdAt: row.CreatedAt || row.createdAt || new Date().toISOString(),
+      updatedAt: row.UpdatedAt || row.updatedAt || new Date().toISOString()
     }));
   }
 

@@ -71,123 +71,12 @@ import { RepairServicingView } from './components/RepairServicingView';
 import { NotificationsActivityView } from './components/NotificationsActivityView';
 import { ProposalView } from './components/ProposalView';
 import { GoogleDriveView } from './components/GoogleDriveView';
+import { OdooControlPanel, OdooViewMode } from './components/OdooControlPanel';
+import { OdooKanbanBoard, KanbanColumn, KanbanItem } from './components/OdooKanbanBoard';
+import { OdooFormModal, OdooFormRecord } from './components/OdooFormModal';
 
-// --- Premium Generated Cricket Gloves Images ---
-import tonProGloves from './assets/images/ton_pro_gloves_1779691687706.png';
-import ssSkyGloves from './assets/images/ss_sky_gloves_1779691711487.png';
-
-// --- Premium Cricket Gloves Stock Dataset ---
-const PREMIUM_GLOVES_STOCK = [
-  {
-    id: "glove-1",
-    name: "SS TON PRO 1.0",
-    mrp: 5460,
-    mrpDisplay: "₹5,460",
-    image: tonProGloves,
-    colorScheme: "Gold, Blue & Red Logo",
-    description: "Syllable-pattern premium test grade glove with signature soft-fill block articulation. Features custom high-impact carbon protective cells and Pittards super-grip palm sheep skin.",
-    rating: "98% Quality Index",
-    stock: 24,
-    status: "Fully Stocked",
-    specs: {
-      padding: "Dual density soft-fill v1.0",
-      palm: "Pittards sheepskin grip",
-      fingerProtection: "Reinforced carbon blocks",
-      wrist: "Towel band with secure velcro"
-    }
-  },
-  {
-    id: "glove-2",
-    name: "SS SKY 1.0",
-    mrp: 4820,
-    mrpDisplay: "₹4,820",
-    image: ssSkyGloves,
-    colorScheme: "Lime, Orange & White",
-    description: "Vibrant high-contrast edition with custom joint mechanics, as played by Surya Kumar Yadav (SKY) under Sunridge. Built for explosive wrist mobility.",
-    rating: "95% Quality Index",
-    stock: 12,
-    status: "Stressed Stock",
-    specs: {
-      padding: "High density foam block inserts",
-      palm: "Aniline premium sheep leather",
-      fingerProtection: "Tri-section joint segmentation",
-      wrist: "Wide sweat absorbing towel band"
-    }
-  },
-  {
-    id: "glove-3",
-    name: "SS TON RO - 45",
-    mrp: 5000,
-    mrpDisplay: "₹5,000",
-    image: "https://images.unsplash.com/photo-1544033527-b192daee1f5b?w=600&auto=format&fit=crop&q=60",
-    colorScheme: "Sleek Gray & White",
-    description: "Premium test-grade gloves carrying slate-gray accents and multi-shield knuckle impact dispersion guards, designed for consistent high-velocity ball blocking.",
-    rating: "96% Quality Index",
-    stock: 18,
-    status: "Fully Stocked",
-    specs: {
-      padding: "Triple-layer shield padding",
-      palm: "English sheepskin touch-grip",
-      fingerProtection: "Fibre-reinforced finger shields",
-      wrist: "Elastic band with loop closure"
-    }
-  },
-  {
-    id: "glove-4",
-    name: "TON PLAYER EDITION",
-    mrp: 3740,
-    mrpDisplay: "₹3,740",
-    image: "https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?w=600&auto=format&fit=crop&q=60",
-    colorScheme: "Traditional White & Blue",
-    description: "Classic robust block-fill batting glove designed for supreme durability, heavy training schedules, continuous side-mesh ventilation, and high sweat tolerance.",
-    rating: "92% Quality Index",
-    stock: 8,
-    status: "Reorder Triggered",
-    specs: {
-      padding: "Block fiber cushion layers",
-      palm: "Full cowhide grip strength",
-      fingerProtection: "Two-piece flexible thumbs",
-      wrist: "Super soft custom sweat shield"
-    }
-  },
-  {
-    id: "glove-5",
-    name: "TON SUPER TEST",
-    mrp: 3720,
-    mrpDisplay: "₹3,720",
-    image: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&auto=format&fit=crop&q=60",
-    colorScheme: "Gold Shield Trim",
-    description: "Elite match gloves featuring premium textured graphite grip blocks and reinforced finger tips for peak defense and secure holding of bat handle during drives.",
-    rating: "91% Quality Index",
-    stock: 15,
-    status: "Fully Stocked",
-    specs: {
-      padding: "Multi-layered dynamic foam",
-      palm: "A-Grade calfskin softness",
-      fingerProtection: "Thermally formed protection",
-      wrist: "Contoured supportive sweatband"
-    }
-  },
-  {
-    id: "glove-6",
-    name: "TON TEST",
-    mrp: 3660,
-    mrpDisplay: "₹3,660",
-    image: "https://images.unsplash.com/photo-1530541930197-ff16ac917b0e?w=600&auto=format&fit=crop&q=60",
-    colorScheme: "Classic Silver Trim",
-    description: "Perfect entry-tier test glove prioritizing standard high-comfort, neat diagonal stitching, and simple robust safety on the outer cricket batting crease.",
-    rating: "90% Quality Index",
-    stock: 4,
-    status: "Stressed Stock",
-    specs: {
-      padding: "Breathable air-mesh backup",
-      palm: "Standard sheep grip skin",
-      fingerProtection: "Contoured fiber-shield caps",
-      wrist: "Secure touch fastener lock"
-    }
-  }
-];
-
+import { db, isCloudConnected } from './firebase';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 
 // --- Types for Core ERP State ---
 interface ERPOrder {
@@ -328,125 +217,26 @@ function MainERPApp() {
   const [simulateValue, setSimulateValue] = useState<string | null>(null);
   const [activeRouteStop, setActiveRouteStop] = useState<'batala' | 'meerut' | 'bhilwara' | 'imphal' | null>(null);
 
+  // --- Odoo Enterprise Standard States ---
+  const [odooViewMode, setOdooViewMode] = useState<OdooViewMode>('kanban');
+  const [odooFilter, setOdooFilter] = useState<string>('all');
+  const [odooGroupBy, setOdooGroupBy] = useState<string>('none');
+  const [odooSearch, setOdooSearch] = useState<string>('');
+  const [selectedOdooRecord, setSelectedOdooRecord] = useState<OdooFormRecord | null>(null);
+  const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
 
-  // --- Prepopulated ERP Interactive Local States ---
-  const [orders, setOrders] = useState<ERPOrder[]>([
-    {
-      id: "ORD-2026-9501",
-      customerId: "CUST-001",
-      customerName: "Manipur Cricket Academy (Imphal)",
-      itemSummary: "2x Customized Grade-1 Willow Bats",
-      itemType: "bat",
-      specs: {
-        willowGrade: "Grade-1 English Willow",
-        weight: "2lb 8oz",
-        gripColor: "Metallic Gold",
-        handleType: "Oval"
-      },
-      totalAmount: 900.00,
-      paymentStatus: "partially_paid",
-      status: "manufacturing",
-      promisedDate: "2026-06-12",
-      notes: "Custom mill specification: Press sweetspot deep. Heavy face-burnish requested.",
-      createdAt: "2026-05-24"
-    },
-    {
-      id: "ORD-2026-9502",
-      customerId: "CUST-002",
-      customerName: "Imphal Eastern Youth Sports Club",
-      itemSummary: "18x Gold Sublimation Jersey Wear",
-      itemType: "jersey",
-      specs: {
-        sublimationDesign: "Imphal Eastern Emerald & Gold custom stripe collection (v4)",
-        jerseySize: "Mix (10x Large, 8x Medium)"
-      },
-      totalAmount: 1350.00,
-      paymentStatus: "paid",
-      status: "printing",
-      promisedDate: "2026-06-15",
-      notes: "PMS Gold crest sublimated, breathable micro-mesh backing.",
-      createdAt: "2026-05-23"
-    },
-    {
-      id: "ORD-2026-9503",
-      customerId: "CUST-003",
-      customerName: "Chungkham Singh (Refurb)",
-      itemSummary: "1x Toe Guard Repair & Face Clean",
-      itemType: "repairs",
-      specs: {
-        repairCategory: "Splint Crack Binding & Resleeve"
-      },
-      totalAmount: 120.00,
-      paymentStatus: "unpaid",
-      status: "ready",
-      promisedDate: "2026-05-30",
-      notes: "Toe edge split from yorker impact. Hand re-finish with anti-scuff coat.",
-      createdAt: "2026-05-22"
-    },
-    {
-      id: "ORD-2026-9504",
-      customerId: "CUST-004",
-      customerName: "Little Flower School Sports Club (Imphal)",
-      itemSummary: "4x English Willow Bats & Matches Balls",
-      itemType: "bat",
-      specs: {
-        willowGrade: "Grade-2 English Willow",
-        weight: "2lb 9oz",
-        gripColor: "Classic White",
-        handleType: "Round"
-      },
-      totalAmount: 1680.00,
-      paymentStatus: "unpaid",
-      status: "pending",
-      promisedDate: "2026-06-25",
-      notes: "Pre-press billets. Hand-selected grain alignments.",
-      createdAt: "2026-05-25"
-    }
-  ]);
+  // --- Real-time ERP Live States connected to Firestore ---
+  const [orders, setOrders] = useState<ERPOrder[]>([]);
+  const [inventory, setInventory] = useState<ERPInventory[]>([]);
+  const [jobs, setJobs] = useState<ERPJob[]>([]);
+  const [customers, setCustomers] = useState<ERPCustomer[]>([]);
+  const [invoices, setInvoices] = useState<ERPInvoice[]>([]);
+  const [transactions, setTransactions] = useState<ERPTransaction[]>([]);
+  const [notifications, setNotifications] = useState<ERPNotification[]>([]);
 
-  const [inventory, setInventory] = useState<ERPInventory[]>([
-    { sku: "BAT-EW-G1", name: "Grade-1 Selected English Willow Billet", category: "bats", stock: 12, safetyLevel: 5, reorderPoint: 8, shelf: "A1-Row-3", price: 450.00, rawCost: 180.00 },
-    { sku: "BAT-EW-G2", name: "Grade-2 English Willow Pre-pressed Cleaved Billet", category: "bats", stock: 4, safetyLevel: 5, reorderPoint: 7, shelf: "A1-Row-4", price: 320.00, rawCost: 120.00 }, // LOW
-    { sku: "JER-SUB-GLD", name: "Premium Jersey Blank - Gold Edition", category: "apparel", stock: 95, safetyLevel: 20, reorderPoint: 40, shelf: "D3-Row-1", price: 75.00, rawCost: 18.00 },
-    { sku: "BAL-LEW-RED", name: "Alum-Tanned 4-Piece Match Leather Ball", category: "balls", stock: 15, safetyLevel: 24, reorderPoint: 48, shelf: "B2-Row-7", price: 45.00, rawCost: 15.00 }, // LOW
-    { sku: "PRO-PAD-WHT", name: "Axiom Lightweight Batting Pads (White)", category: "protective", stock: 19, safetyLevel: 6, reorderPoint: 12, shelf: "C1-Row-5", price: 160.00, rawCost: 55.00 }
-  ]);
-
-  const [jobs, setJobs] = useState<ERPJob[]>([
-    { id: "JOB-MILL-8850", orderId: "ORD-2026-9501", customerName: "Manipur Cricket Academy (Imphal)", sku: "BAT-EW-G1", type: "mill", status: "pressing", priority: "high", notes: "Calibrate press weight to 2.8lb exactly. Soft bounce.", craftsman: "Vijay Merchant" },
-    { id: "PRINT-SUB-0023", orderId: "ORD-2026-9502", customerName: "Imphal Eastern Youth Sports Club", sku: "JER-SUB-GLD", type: "print", status: "curing", priority: "medium", notes: "Color pantone check PMS-131C. Cure heat cycle 180s.", craftsman: "Sarah Printworks" },
-    { id: "REP-WILLOW-0024", orderId: "ORD-2026-9503", customerName: "Chungkham Singh (Refurb)", sku: "REPAIR-SERVICE", type: "repair", status: "final-tuning", priority: "low", notes: "Sand down splintered grain edges block, replace grip with matching gold ring skin.", craftsman: "Vijay Merchant" }
-  ]);
-
-  const [customers, setCustomers] = useState<ERPCustomer[]>([
-    { id: "CUST-001", name: "Manipur Cricket Academy (Imphal)", email: "contact@manipurcricketacademy.org.in", phone: "+91-385-2441011", affiliation: "Academy", activeOrders: 1, branch: "Melbourne Closets", address: "Khuman Lampak Sports Complex, Imphal East, Manipur 795001" },
-    { id: "CUST-002", name: "Imphal Eastern Youth Sports Club", email: "info@imphaleasternclub.com", phone: "+91-385-2442221", affiliation: "Club Team", activeOrders: 1, branch: "Melbourne Closets", address: "Sajiwa Sports Arena, Imphal East, Manipur 795114" },
-    { id: "CUST-003", name: "Chungkham Singh (Refurb)", email: "chungkham@manipurathletics.org.in", phone: "+91-385-9988111", affiliation: "Individual Athlete", activeOrders: 1, branch: "London Closets", address: "Singjamei Thokchom Leikai, Imphal West, Manipur 795008" },
-    { id: "CUST-004", name: "Little Flower School Sports Club (Imphal)", email: "sports@littleflowerschoolimphal.edu.in", phone: "+91-385-2440344", affiliation: "Club Team", activeOrders: 1, branch: "Melbourne Closets", address: "Sangaiprou, Airport Road, Imphal, Manipur 795001" }
-  ]);
-
-  const [invoices, setInvoices] = useState<ERPInvoice[]>([
-    { id: "INV-2026-X11", orderId: "ORD-2026-9501", customerName: "Manipur Cricket Academy (Imphal)", dueDate: "2026-06-12", amount: 900.00, paid: 450.00, status: "partially_paid" },
-    { id: "INV-2026-X12", orderId: "ORD-2026-9502", customerName: "Imphal Eastern Youth Sports Club", dueDate: "2026-06-15", amount: 1350.00, paid: 1350.00, status: "paid" },
-    { id: "INV-2026-X13", orderId: "ORD-2026-9503", customerName: "Chungkham Singh (Refurb)", dueDate: "2026-05-30", amount: 120.00, paid: 0.00, status: "unpaid" },
-    { id: "INV-2026-X14", orderId: "ORD-2026-9504", customerName: "Little Flower School Sports Club (Imphal)", dueDate: "2026-06-25", amount: 1680.00, paid: 0.00, status: "unpaid" }
-  ]);
-
-  const [transactions, setTransactions] = useState<ERPTransaction[]>([
-    { id: "TXN-9091", invoiceId: "INV-2026-X11", amount: 450.00, type: "incoming_payment", method: "bank_transfer", date: "2026-05-24", reference: "BS-942-IMP_MCA" },
-    { id: "TXN-9092", invoiceId: "INV-2026-X12", amount: 1350.00, type: "incoming_payment", method: "card", date: "2026-05-23", reference: "STRIPE_CH_9003" }
-  ]);
-
-  const [notifications, setNotifications] = useState<ERPNotification[]>([
-    { id: "NOT-01", title: "Low Stock Trigger: English Willow", message: "Grade-2 English Willow cleaves (SKU: BAT-EW-G2) fell below Safety Guard level 5.", type: "low_stock", time: "25 mins ago", read: false },
-    { id: "NOT-02", title: "Alum Match Balls Replenishment Needed", message: "Alum 4-Piece Balls (SKU: BAL-LEW-RED) inventory is holding 15 vs safety minimum of 24.", type: "low_stock", time: "2 hours ago", read: false },
-    { id: "NOT-03", title: "Job Printing Sublimation In Curing", message: "Sarah Printworks registered PMS color curing session for Imphal Eastern design proofs.", type: "job_milestone", time: "4 hours ago", read: true }
-  ]);
-
-  // --- Client Mock Event Streams for PWA Sync telemetry panel ---
+  // --- Client Event Streams for PWA Sync telemetry panel ---
   const [telemetryLogs, setTelemetryLogs] = useState<{ id: string; event: string; status: 'info' | 'syncing' | 'synced'; timestamp: string }[]>([
-    { id: "TLM-1", event: "Offline buffer loaded. Local IndexedDB persistent store active.", status: "info", timestamp: "05:03:12" },
-    { id: "TLM-2", event: "PWA synchronization connection established over Cloud Run tunnel secure socket.", status: "synced", timestamp: "05:03:15" }
+    { id: "TLM-1", event: "ERP initialized with authoritative Firestore data layer.", status: "info", timestamp: new Date().toTimeString().split(' ')[0] }
   ]);
 
   // Connect root ERP React state setters directly to the central coordination service
@@ -461,47 +251,165 @@ function MainERPApp() {
     });
   }, [orders, inventory, jobs, customers, notifications, telemetryLogs]);
 
-  // Synchronically hydrate ERP collections from Live Azure SQL databases via server proxies
+  // Live Firestore synchronization for Orders, Inventory, Jobs, Customers, Invoices, Transactions
   useEffect(() => {
-    const hydrateGlobalERPState = async () => {
-      try {
-        logTelemetry("Hydrating central ERP registers from Azure SQL database...", "syncing");
-        
-        // 1. Fetch Inventory
-        const resInv = await fetch('/api/inventory');
-        if (resInv.ok) {
-          const invList = await resInv.json();
-          if (invList && invList.length > 0) {
-            setInventory(invList);
-          }
-        }
-
-        // 2. Fetch Customers
-        const resCust = await fetch('/api/customers');
-        if (resCust.ok) {
-          const custList = await resCust.json();
-          if (custList && custList.length > 0) {
-            setCustomers(custList);
-          }
-        }
-
-        // 3. Fetch Orders
-        const resOrd = await fetch('/api/orders');
-        if (resOrd.ok) {
-          const ordList = await resOrd.json();
-          if (ordList && ordList.length > 0) {
-            setOrders(ordList);
-          }
-        }
-
-        logTelemetry("In-store ERP state hydrated with live cloud registers.", "synced");
-      } catch (err) {
-        console.error("Hydration error:", err);
-        logTelemetry("Azure state hydration skipped, maintaining stored local databases.", "info");
+    if (!isCloudConnected) {
+      // Local fallback
+      const localOrders = localStorage.getItem('erp_orders');
+      if (localOrders) {
+        try { setOrders(JSON.parse(localOrders)); } catch {}
       }
-    };
+      return;
+    }
 
-    hydrateGlobalERPState();
+    logTelemetry("Connecting real-time Firestore data streams...", "syncing");
+
+    // 1. Orders
+    const unsubOrders = onSnapshot(collection(db, 'orders'), (snap) => {
+      const list: ERPOrder[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        list.push({
+          id: d.id,
+          customerId: data.customerId || '',
+          customerName: data.customerName || data.customer || 'Unknown Client',
+          itemSummary: data.itemSummary || data.summary || (data.orderItems?.[0]?.name ? `${data.orderItems[0].qty || 1}x ${data.orderItems[0].name}` : 'Order Contract'),
+          itemType: data.itemType || 'bat',
+          specs: data.specs || {},
+          totalAmount: Number(data.totalAmount || 0),
+          paymentStatus: data.paymentStatus || 'unpaid',
+          status: data.status || 'pending',
+          promisedDate: data.promisedDate || data.deliveryDate || '',
+          notes: data.notes || '',
+          createdAt: data.createdAt || ''
+        });
+      });
+      setOrders(list);
+      logTelemetry(`Synced ${list.length} orders from Firestore`, "synced");
+    }, (err) => console.warn("Orders listener error:", err));
+
+    // 2. Inventory / Products
+    const unsubInventory = onSnapshot(collection(db, 'inventory'), (snap) => {
+      const list: ERPInventory[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        list.push({
+          sku: data.sku || d.id,
+          name: data.name || data.skuLabel || d.id,
+          category: data.category || 'protective',
+          stock: Number(data.stock ?? data.stockLevel ?? data.currentStock ?? 0),
+          safetyLevel: Number(data.safetyLevel ?? data.safetyStock ?? data.minimumStock ?? 5),
+          reorderPoint: Number(data.reorderPoint ?? 8),
+          shelf: data.shelf || data.shelfLocation || 'Main Bin',
+          price: Number(data.price ?? data.sellingPrice ?? 0),
+          rawCost: Number(data.rawCost ?? data.purchasePrice ?? 0)
+        });
+      });
+      setInventory(list);
+    }, (err) => console.warn("Inventory listener error:", err));
+
+    // 3. Manufacturing Jobs
+    const unsubJobs = onSnapshot(collection(db, 'manufacturing_workflows'), (snap) => {
+      const list: ERPJob[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        list.push({
+          id: d.id,
+          orderId: data.orderId || '',
+          customerName: data.customerName || '',
+          sku: data.sku || 'MFT-JOB',
+          type: data.type || 'mill',
+          status: data.stage === 'Delivered' ? 'complete' : (data.stage ? data.stage.toLowerCase().replace(/ /g, '-') : 'queued') as any,
+          priority: data.priority || 'medium',
+          notes: data.notes || '',
+          craftsman: data.assignedStaff || 'Vijay Merchant',
+          qualityScore: data.progress || 0
+        });
+      });
+      setJobs(list);
+    }, (err) => console.warn("Jobs listener error:", err));
+
+    // 4. Customers
+    const unsubCustomers = onSnapshot(collection(db, 'customers'), (snap) => {
+      const list: ERPCustomer[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        list.push({
+          id: d.id,
+          name: data.name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          affiliation: data.affiliation || (data.type === 'school' ? 'Academy' : data.type === 'team' ? 'Club Team' : 'Individual Athlete'),
+          activeOrders: Number(data.activeOrders || 0),
+          branch: data.branch || data.branchId || 'Melbourne Closets',
+          address: typeof data.address === 'string' ? data.address : (data.address?.street ? `${data.address.street}, ${data.address.city || ''}` : '')
+        });
+      });
+      setCustomers(list);
+    }, (err) => console.warn("Customers listener error:", err));
+
+    // 5. Invoices
+    const unsubInvoices = onSnapshot(collection(db, 'invoices'), (snap) => {
+      const list: ERPInvoice[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        list.push({
+          id: d.id,
+          orderId: data.orderId || '',
+          customerName: data.customerName || '',
+          dueDate: data.dueDate || '',
+          amount: Number(data.amount || 0),
+          paid: Number(data.paid || 0),
+          status: data.status || 'unpaid'
+        });
+      });
+      setInvoices(list);
+    }, (err) => console.warn("Invoices listener error:", err));
+
+    // 6. Transactions
+    const unsubTransactions = onSnapshot(collection(db, 'transactions'), (snap) => {
+      const list: ERPTransaction[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        list.push({
+          id: d.id,
+          invoiceId: data.invoiceId || '',
+          amount: Number(data.amount || 0),
+          type: data.type || 'incoming_payment',
+          method: data.method || 'cash',
+          date: data.date || '',
+          reference: data.reference || ''
+        });
+      });
+      setTransactions(list);
+    }, (err) => console.warn("Transactions listener error:", err));
+
+    // 7. Notifications
+    const unsubNotifications = onSnapshot(collection(db, 'notifications'), (snap) => {
+      const list: ERPNotification[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        list.push({
+          id: d.id,
+          title: data.title || '',
+          message: data.message || '',
+          type: data.type || 'new_order',
+          time: data.time || 'Recent',
+          read: !!data.read
+        });
+      });
+      setNotifications(list);
+    }, (err) => console.warn("Notifications listener error:", err));
+
+    return () => {
+      unsubOrders();
+      unsubInventory();
+      unsubJobs();
+      unsubCustomers();
+      unsubInvoices();
+      unsubTransactions();
+      unsubNotifications();
+    };
   }, [branchScope]);
 
   // --- Interactive Modals Toggles ---
@@ -562,6 +470,65 @@ function MainERPApp() {
       { id: `TLM-${Date.now()}`, event: action, status, timestamp: timeStr },
       ...prev.slice(0, 12)
     ]);
+  };
+
+  // Odoo Document Form Sheet opener
+  const openOrderInOdooSheet = (order: ERPOrder) => {
+    setSelectedOdooRecord({
+      id: order.id,
+      type: 'order',
+      title: `${order.id} - ${order.customerName}`,
+      subtitle: `${order.itemSummary} · Promised Delivery: ${order.promisedDate}`,
+      status: order.status,
+      stages: ['draft', 'pending', 'manufacturing', 'printing', 'ready', 'delivered'],
+      totalAmount: order.totalAmount,
+      data: order,
+      chatterLogs: [
+        {
+          id: 'log-1',
+          author: 'System Sentry',
+          type: 'status_change',
+          body: `Order stage confirmed: ${order.status.toUpperCase()}`,
+          timestamp: 'Today 10:15'
+        },
+        {
+          id: 'log-2',
+          author: profile?.name || 'Administrator',
+          type: 'note',
+          body: `Bat milling & shaping verified for ${order.customerName}. Wood: ${order.specs?.willowGrade || 'Grade-1 English Willow'}.`,
+          timestamp: 'Yesterday 16:40'
+        }
+      ]
+    });
+    setIsFormModalOpen(true);
+  };
+
+  const handleMoveOrderStage = (orderId: string, newStage: string) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStage as any } : o));
+    logTelemetry(`Advanced order ${orderId} to stage: ${newStage}`, 'synced');
+  };
+
+  const handleModalStatusChange = (newStatus: string) => {
+    if (!selectedOdooRecord) return;
+    const mapped = newStatus.toLowerCase().replace(/ /g, '_');
+    setOrders(prev => prev.map(o => o.id === selectedOdooRecord.id ? { ...o, status: mapped as any } : o));
+    setSelectedOdooRecord(prev => prev ? { ...prev, status: newStatus } : null);
+    logTelemetry(`Updated status on ${selectedOdooRecord.id} to ${newStatus}`, 'synced');
+  };
+
+  const handleAddChatter = (type: 'message' | 'note', body: string) => {
+    if (!selectedOdooRecord) return;
+    const newLog = {
+      id: `chat-${Date.now()}`,
+      author: profile?.name || 'Administrator',
+      type: type as any,
+      body,
+      timestamp: 'Just now'
+    };
+    setSelectedOdooRecord(prev => prev ? {
+      ...prev,
+      chatterLogs: [newLog, ...(prev.chatterLogs || [])]
+    } : null);
   };
 
   // Run Order creation and corresponding state pipelines
@@ -796,6 +763,37 @@ function MainERPApp() {
     setIsInvoicePaymentModalOpen(false);
   };
 
+  // Odoo Enterprise Kanban Configuration
+  const kanbanColumns: KanbanColumn[] = [
+    { id: 'draft', title: '1. Draft / Inquiry', color: 'bg-neutral-500' },
+    { id: 'pending', title: '2. Confirmed Order', color: 'bg-blue-500' },
+    { id: 'manufacturing', title: '3. In Fabrication', color: 'bg-amber-500' },
+    { id: 'printing', title: '4. Sublimation / Quality', color: 'bg-purple-500' },
+    { id: 'ready', title: '5. Ready for Dispatch', color: 'bg-emerald-500' },
+    { id: 'delivered', title: '6. Done / Delivered', color: 'bg-teal-500' },
+  ];
+
+  const filteredOrdersForOdoo = orders.filter(o => {
+    const matchesSearch = !odooSearch.trim() || 
+      o.customerName.toLowerCase().includes(odooSearch.toLowerCase()) || 
+      o.id.toLowerCase().includes(odooSearch.toLowerCase()) ||
+      o.itemSummary.toLowerCase().includes(odooSearch.toLowerCase());
+    const matchesFilter = odooFilter === 'all' || o.status === odooFilter;
+    return matchesSearch && matchesFilter;
+  });
+
+  const kanbanItems: KanbanItem[] = filteredOrdersForOdoo.map(o => ({
+    id: o.id,
+    title: o.customerName,
+    subtitle: `${o.itemSummary} · Promised: ${o.promisedDate}`,
+    category: o.itemType,
+    amount: o.totalAmount,
+    stageId: o.status,
+    date: o.promisedDate,
+    priority: o.totalAmount > 800 ? 'high' : 'medium',
+    rawItem: o
+  }));
+
   return (
     <div className={themeMode === 'light' ? 'theme-light' : ''}>
       <MainAppShell
@@ -822,8 +820,51 @@ function MainERPApp() {
                 initial={{ opacity: 0, y: 15 }} 
                 animate={{ opacity: 1, y: 0 }} 
                 exit={{ opacity: 0, y: -15 }}
-                className="space-y-8"
+                className="space-y-6"
               >
+                {/* 0. ODOO ENTERPRISE CONTROL PANEL */}
+                <OdooControlPanel
+                  appName="Cockpit Operations"
+                  breadcrumbs={['Overview', odooViewMode.toUpperCase()]}
+                  viewMode={odooViewMode}
+                  onViewModeChange={setOdooViewMode}
+                  onNewRecord={() => setIsNewOrderModalOpen(true)}
+                  newRecordLabel="+ New Order"
+                  onExport={() => {
+                    const csv = 'Order ID,Customer,Amount,Status,Promised Date\n' + orders.map(o => `${o.id},"${o.customerName}",${o.totalAmount},${o.status},${o.promisedDate}`).join('\n');
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `odoo_orders_ledger_${Date.now()}.csv`;
+                    a.click();
+                  }}
+                  onPrint={() => window.print()}
+                  onRefresh={() => logTelemetry('Synchronized Cockpit orders & stock', 'synced')}
+                  searchQuery={odooSearch}
+                  onSearchChange={setOdooSearch}
+                  activeFilter={odooFilter}
+                  onFilterChange={setOdooFilter}
+                  availableFilters={[
+                    { id: 'all', label: 'All Orders' },
+                    { id: 'draft', label: 'Draft / Inquiry' },
+                    { id: 'pending', label: 'Confirmed' },
+                    { id: 'manufacturing', label: 'In Fabrication' },
+                    { id: 'printing', label: 'Sublimation / QC' },
+                    { id: 'ready', label: 'Ready for Dispatch' },
+                    { id: 'delivered', label: 'Delivered' }
+                  ]}
+                  activeGroupBy={odooGroupBy}
+                  onGroupByChange={setOdooGroupBy}
+                  availableGroups={[
+                    { id: 'none', label: 'No Grouping' },
+                    { id: 'status', label: 'By Stage' },
+                    { id: 'itemType', label: 'By Item Category' },
+                    { id: 'paymentStatus', label: 'By Payment Status' }
+                  ]}
+                  recordCount={kanbanItems.length}
+                  totalCount={orders.length}
+                />
                 {/* Hero Showcase Widget */}
                 <div className="relative bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-900 rounded-2xl p-6 lg:p-8 border border-neutral-800 overflow-hidden shadow-2xl">
                   {/* Decorative mesh backings */}
@@ -843,71 +884,238 @@ function MainERPApp() {
                 </div>
 
                 {/* 4 Core Balanced KPI Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="kpi-matrix">
-                  
-                  {/* Revenue Invoice clearing balance */}
-                  <div className="bg-neutral-900 p-5 rounded-xl border border-neutral-800 flex items-center justify-between select-none">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-mono font-bold text-neutral-500 tracking-wider uppercase">LEDGER CREDITS (YTD)</span>
-                      <h3 className="text-2xl font-black text-white font-mono">₹10,480.00</h3>
-                      <div className="flex items-center gap-1 text-[10px] font-mono text-emerald-400">
-                        <TrendingUp className="w-3 h-3" />
-                        <span>+₹1,800.00 today (100% verified)</span>
+                {(() => {
+                  const totalLedgerCredits = transactions.reduce((acc, t) => acc + (t.amount || 0), 0) ||
+                    invoices.filter(i => i.status === 'paid').reduce((acc, i) => acc + (i.paid || i.amount || 0), 0) ||
+                    orders.filter(o => o.paymentStatus === 'paid').reduce((acc, o) => acc + (o.totalAmount || 0), 0);
+                  const todayLedgerCredits = transactions.filter(t => t.date === new Date().toISOString().split('T')[0]).reduce((acc, t) => acc + (t.amount || 0), 0);
+                  const lowStockCount = inventory.filter(i => (i.stock || 0) < (i.safetyLevel || 5)).length;
+
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="kpi-matrix">
+                      {/* Revenue Invoice clearing balance */}
+                      <div className="bg-neutral-900 p-5 rounded-xl border border-neutral-800 flex items-center justify-between select-none">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-mono font-bold text-neutral-500 tracking-wider uppercase">LEDGER CREDITS (YTD)</span>
+                          <h3 className="text-2xl font-black text-white font-mono">₹{totalLedgerCredits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+                          <div className="flex items-center gap-1 text-[10px] font-mono text-emerald-400">
+                            <TrendingUp className="w-3 h-3" />
+                            <span>{totalLedgerCredits > 0 ? `+₹${todayLedgerCredits.toLocaleString()} verified today` : '₹0.00 today (Live)'}</span>
+                          </div>
+                        </div>
+                        <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20 shrink-0">
+                          <IndianRupee className="w-5 h-5 focus:outline-none" />
+                        </div>
+                      </div>
+
+                      {/* Orders Queue Counter */}
+                      <div className="bg-neutral-900 p-5 rounded-xl border border-neutral-800 flex items-center justify-between select-none">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-mono font-bold text-neutral-500 tracking-wider uppercase">ACTIVE ORDERS BOOKED</span>
+                          <h3 className="text-2xl font-black text-white font-mono">{orders.length} Contracts</h3>
+                          <div className="flex items-center gap-1 text-[10px] font-mono text-amber-500">
+                            <ShoppingCart className="w-3 h-3" />
+                            <span>In manufacturing: {orders.filter(o => o.status === 'manufacturing').length}</span>
+                          </div>
+                        </div>
+                        <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20 shrink-0">
+                          <ShoppingCart className="w-5 h-5" />
+                        </div>
+                      </div>
+
+                      {/* Splicing Tasks in progress */}
+                      <div className="bg-neutral-900 p-5 rounded-xl border border-neutral-800 flex items-center justify-between select-none">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-mono font-bold text-neutral-500 tracking-wider uppercase">FABRICATION BACKLOG</span>
+                          <h3 className="text-2xl font-black text-white font-mono">{jobs.filter(j=>j.status !== 'complete').length} Open Jobs</h3>
+                          <div className="flex items-center gap-1 text-[10px] font-mono text-neutral-400">
+                            <span>{jobs.length > 0 ? 'Quality target: min 95.0% grade' : 'Production queue empty'}</span>
+                          </div>
+                        </div>
+                        <div className="w-10 h-10 rounded-lg bg-neutral-800 flex items-center justify-center text-neutral-400 border border-neutral-700 shrink-0">
+                          <Hammer className="w-5 h-5" />
+                        </div>
+                      </div>
+
+                      {/* Physical Inventory Slices stock alerts */}
+                      <div className={`bg-neutral-900 p-5 rounded-xl border flex items-center justify-between select-none ${lowStockCount > 0 ? 'border-[#9d3636]' : 'border-neutral-800'}`}>
+                        <div className="space-y-1">
+                          <span className={`text-[10px] font-mono font-bold tracking-wider uppercase ${lowStockCount > 0 ? 'text-red-500' : 'text-neutral-500'}`}>LOW STOCK WARNING</span>
+                          <h3 className={`text-2xl font-black font-mono ${lowStockCount > 0 ? 'text-red-400' : 'text-white'}`}>
+                            {lowStockCount} SKU Alerts
+                          </h3>
+                          <div className={`text-[10px] font-mono ${lowStockCount > 0 ? 'text-red-500/80' : 'text-emerald-400'}`}>
+                            <span>{lowStockCount > 0 ? 'Depleted below safety threshold' : 'Stock reserves nominal'}</span>
+                          </div>
+                        </div>
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${lowStockCount > 0 ? 'bg-red-950/40 text-red-400 border border-red-800/40' : 'bg-emerald-950/40 text-emerald-400 border border-emerald-800/40'}`}>
+                          <AlertTriangle className="w-5 h-5" />
+                        </div>
                       </div>
                     </div>
-                    <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20 shrink-0">
-                      <IndianRupee className="w-5 h-5 focus:outline-none" />
-                    </div>
-                  </div>
+                  );
+                })()}
 
-                  {/* Orders Queue Counter */}
-                  <div className="bg-neutral-900 p-5 rounded-xl border border-neutral-800 flex items-center justify-between select-none">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-mono font-bold text-neutral-500 tracking-wider uppercase">ACTIVE ORDERS BOOKED</span>
-                      <h3 className="text-2xl font-black text-white font-mono">{orders.length} Contracts</h3>
-                      <div className="flex items-center gap-1 text-[10px] font-mono text-amber-500">
-                        <ShoppingCart className="w-3 h-3" />
-                        <span>In manufacturing: {orders.filter(o => o.status === 'manufacturing').length}</span>
+                {/* ODOO ENTERPRISE VIEW CONTAINER (Kanban, Tree List, or Pivot Matrix) */}
+                <div className="space-y-4">
+                  {odooViewMode === 'kanban' && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
+                            <span>Stage Pipeline Kanban</span>
+                            <span className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded font-mono">
+                              Odoo Standard
+                            </span>
+                          </h3>
+                        </div>
+                        <span className="text-xs text-neutral-400 font-mono hidden sm:inline">
+                          Click any card to open Odoo Document Sheet
+                        </span>
+                      </div>
+                      <OdooKanbanBoard
+                        columns={kanbanColumns}
+                        items={kanbanItems}
+                        onItemClick={(kItem) => openOrderInOdooSheet(kItem.rawItem)}
+                        onMoveStage={handleMoveOrderStage}
+                        onQuickAdd={() => {
+                          setNewOrderForm(prev => ({ ...prev, itemType: 'bat' }));
+                          setIsNewOrderModalOpen(true);
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {odooViewMode === 'list' && (
+                    <div className="bg-[#171b22] border border-neutral-800 rounded-xl overflow-hidden shadow-sm">
+                      <div className="px-5 py-3.5 border-b border-neutral-800 flex items-center justify-between bg-[#14171d]">
+                        <div className="flex items-center gap-2 text-xs font-mono">
+                          <span className="text-amber-400 font-bold uppercase">Orders Tree View (List)</span>
+                          <span className="text-neutral-500">· {kanbanItems.length} records</span>
+                        </div>
+                        <span className="text-[11px] text-neutral-400 font-mono">Click 'Open Sheet' for full Odoo Form</span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs font-sans">
+                          <thead className="bg-[#12151b] text-neutral-400 uppercase font-mono text-[10px] border-b border-neutral-800">
+                            <tr>
+                              <th className="py-2.5 px-4">Order Ref</th>
+                              <th className="py-2.5 px-4">Customer / Club</th>
+                              <th className="py-2.5 px-4">Item Summary</th>
+                              <th className="py-2.5 px-4">Stage</th>
+                              <th className="py-2.5 px-4">Payment</th>
+                              <th className="py-2.5 px-4">Promised Delivery</th>
+                              <th className="py-2.5 px-4 text-right">Valuation</th>
+                              <th className="py-2.5 px-4 text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-800 text-neutral-200">
+                            {filteredOrdersForOdoo.length === 0 ? (
+                              <tr>
+                                <td colSpan={8} className="py-12 text-center">
+                                  <div className="flex flex-col items-center justify-center space-y-2 text-neutral-400 font-mono">
+                                    <ShoppingCart className="w-8 h-8 text-neutral-600 stroke-[1.5]" />
+                                    <span className="text-sm font-semibold text-neutral-300">No Orders Recorded in Pipeline</span>
+                                    <p className="text-xs text-neutral-500 max-w-sm">No sales or custom manufacturing orders currently exist in the database.</p>
+                                    <button
+                                      onClick={() => {
+                                        setNewOrderForm(prev => ({ ...prev, itemType: 'bat' }));
+                                        setIsNewOrderModalOpen(true);
+                                      }}
+                                      className="mt-2 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                                    >
+                                      <Plus className="w-3.5 h-3.5" />
+                                      <span>Create First Order</span>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : (
+                              filteredOrdersForOdoo.map(o => (
+                                <tr key={o.id} className="hover:bg-neutral-800/50 transition">
+                                  <td className="py-3 px-4 font-mono font-semibold text-purple-300">{o.id}</td>
+                                  <td className="py-3 px-4 font-medium text-white">{o.customerName}</td>
+                                  <td className="py-3 px-4 text-neutral-300 text-[11px]">{o.itemSummary}</td>
+                                  <td className="py-3 px-4">
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                      {o.status}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                                      o.paymentStatus === 'paid' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                                    }`}>
+                                      {o.paymentStatus}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 font-mono text-neutral-400 text-[11px]">{o.promisedDate}</td>
+                                  <td className="py-3 px-4 text-right font-mono font-bold text-amber-400">
+                                    ₹{o.totalAmount.toLocaleString()}
+                                  </td>
+                                  <td className="py-3 px-4 text-center">
+                                    <button
+                                      onClick={() => openOrderInOdooSheet(o)}
+                                      className="px-2.5 py-1 rounded bg-[#714B67] hover:bg-[#86597a] text-white text-[11px] font-semibold transition cursor-pointer"
+                                    >
+                                      Open Sheet
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
-                    <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20 shrink-0">
-                      <ShoppingCart className="w-5 h-5" />
-                    </div>
-                  </div>
+                  )}
 
-                  {/* Splicing Tasks in progress */}
-                  <div className="bg-neutral-900 p-5 rounded-xl border border-neutral-800 flex items-center justify-between select-none">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-mono font-bold text-neutral-500 tracking-wider uppercase">FABRICATION BACKLOG</span>
-                      <h3 className="text-2xl font-black text-white font-mono">{jobs.filter(j=>j.status !== 'complete').length} Open Jobs</h3>
-                      <div className="flex items-center gap-1 text-[10px] font-mono text-neutral-400">
-                        <span>Quality target: min 95.0% grade</span>
+                  {odooViewMode === 'pivot' && (
+                    <div className="bg-[#171b22] border border-neutral-800 rounded-xl overflow-hidden shadow-sm p-5 space-y-4">
+                      <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+                        <div>
+                          <h3 className="text-sm font-bold text-white uppercase font-mono">
+                            Odoo Multi-Dimensional Pivot Matrix
+                          </h3>
+                          <p className="text-xs text-neutral-400">Aggregation: Categories vs Manufacturing Stages</p>
+                        </div>
+                        <span className="text-[11px] font-mono text-amber-400 font-bold">Sum of Valuation (₹)</span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs font-mono">
+                          <thead className="bg-[#12151b] text-neutral-400 border-b border-neutral-800">
+                            <tr>
+                              <th className="py-2.5 px-3">Category</th>
+                              <th className="py-2.5 px-3 text-right">Draft</th>
+                              <th className="py-2.5 px-3 text-right">Confirmed</th>
+                              <th className="py-2.5 px-3 text-right">Manufacturing</th>
+                              <th className="py-2.5 px-3 text-right">Ready</th>
+                              <th className="py-2.5 px-3 text-right">Delivered</th>
+                              <th className="py-2.5 px-3 text-right font-bold text-white">Row Total</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-800 text-neutral-300">
+                            {['bat', 'jersey', 'balls', 'repairs'].map((cat) => {
+                              const catOrders = orders.filter(o => o.itemType === cat);
+                              const getSum = (st: string) => catOrders.filter(o => o.status === st).reduce((acc, c) => acc + c.totalAmount, 0);
+                              const rowTotal = catOrders.reduce((acc, c) => acc + c.totalAmount, 0);
+                              return (
+                                <tr key={cat} className="hover:bg-neutral-800/40">
+                                  <td className="py-2.5 px-3 font-bold text-white uppercase">{cat}</td>
+                                  <td className="py-2.5 px-3 text-right">₹{getSum('draft').toLocaleString()}</td>
+                                  <td className="py-2.5 px-3 text-right">₹{getSum('pending').toLocaleString()}</td>
+                                  <td className="py-2.5 px-3 text-right">₹{getSum('manufacturing').toLocaleString()}</td>
+                                  <td className="py-2.5 px-3 text-right">₹{getSum('ready').toLocaleString()}</td>
+                                  <td className="py-2.5 px-3 text-right">₹{getSum('delivered').toLocaleString()}</td>
+                                  <td className="py-2.5 px-3 text-right font-bold text-amber-400">₹{rowTotal.toLocaleString()}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
-                    <div className="w-10 h-10 rounded-lg bg-neutral-800 flex items-center justify-center text-neutral-400 border border-neutral-700 shrink-0">
-                      <Hammer className="w-5 h-5" />
-                    </div>
-                  </div>
-
-                  {/* Physical Inventory Slices stock alerts */}
-                  <div className="bg-neutral-900 p-5 rounded-xl border border-[#9d3636] flex items-center justify-between select-none">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-mono font-bold text-red-500 tracking-wider uppercase">LOW STOCK WARNING</span>
-                      <h3 className="text-2xl font-black text-red-400 font-mono">
-                        {inventory.filter(i => i.stock < i.safetyLevel).length} SKU Alerts
-                      </h3>
-                      <div className="text-[10px] font-mono text-red-500/80">
-                        <span>Willow / Leather Balls depletion</span>
-                      </div>
-                    </div>
-                    <div className="w-10 h-10 rounded-lg bg-red-950/40 flex items-center justify-center text-red-400 border border-red-800/40 shrink-0">
-                      <AlertTriangle className="w-5 h-5" />
-                    </div>
-                  </div>
-
+                  )}
                 </div>
-
-                {/* Left/Right Operations grid layout (Live sync loops + Low inventory alerts) */}
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6" id="dashboard-mesh-dashboard">
                   
                   {/* Left Column (8 units): Telemetry + stock alarms quick control */}
@@ -923,47 +1131,57 @@ function MainERPApp() {
                           </h4>
                           <p className="text-[11px] text-neutral-400 font-mono mt-0.5">Estimated gross ledger credits per fiscal week</p>
                         </div>
-                        <span className="text-[10px] font-mono bg-neutral-950 border border-neutral-800 px-2 py-1 rounded text-amber-400 font-bold">14 Collections</span>
+                        <span className="text-[10px] font-mono bg-neutral-950 border border-neutral-800 px-2 py-1 rounded text-amber-400 font-bold">
+                          {orders.length} Active {orders.length === 1 ? 'Contract' : 'Contracts'}
+                        </span>
                       </div>
 
                       {/* Spark graph SVG representing dynamic cricket order levels */}
-                      <div className="bg-neutral-950 rounded-xl p-4 border border-neutral-800 flex justify-center items-center">
-                        <svg className="w-full h-40" viewBox="0 0 500 120" id="svg-valuation-spark">
-                          <defs>
-                            <linearGradient id="gold-grad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#E5B84B" stopOpacity="0.3" />
-                              <stop offset="100%" stopColor="#E5B84B" stopOpacity="0.0" />
-                            </linearGradient>
-                          </defs>
-                          {/* Grid references */}
-                          <line x1="0" y1="20" x2="500" y2="20" stroke="#1c1917" strokeWidth="1" strokeDasharray="3" />
-                          <line x1="0" y1="60" x2="500" y2="60" stroke="#1c1917" strokeWidth="1" strokeDasharray="3" />
-                          <line x1="0" y1="100" x2="500" y2="100" stroke="#1c1917" strokeWidth="1" strokeDasharray="3" />
+                      <div className="bg-neutral-950 rounded-xl p-4 border border-neutral-800 flex justify-center items-center min-h-[160px]">
+                        {orders.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center text-center p-6 space-y-2">
+                            <TrendingUp className="w-6 h-6 text-neutral-600 stroke-[1.5]" />
+                            <span className="text-xs font-mono font-medium text-neutral-400">No Orders in Current Pipeline</span>
+                            <span className="text-[11px] text-neutral-600 font-mono max-w-xs">Valuation sparklines will plot in real-time as contracts are booked.</span>
+                          </div>
+                        ) : (
+                          <svg className="w-full h-40" viewBox="0 0 500 120" id="svg-valuation-spark">
+                            <defs>
+                              <linearGradient id="gold-grad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#E5B84B" stopOpacity="0.3" />
+                                <stop offset="100%" stopColor="#E5B84B" stopOpacity="0.0" />
+                              </linearGradient>
+                            </defs>
+                            {/* Grid references */}
+                            <line x1="0" y1="20" x2="500" y2="20" stroke="#1c1917" strokeWidth="1" strokeDasharray="3" />
+                            <line x1="0" y1="60" x2="500" y2="60" stroke="#1c1917" strokeWidth="1" strokeDasharray="3" />
+                            <line x1="0" y1="100" x2="500" y2="100" stroke="#1c1917" strokeWidth="1" strokeDasharray="3" />
 
-                          {/* Poly Fill */}
-                          <polygon 
-                            points="10,105 100,85 180,95 240,40 330,65 420,30 490,45 490,110 10,110" 
-                            fill="url(#gold-grad)" 
-                          />
+                            {/* Poly Fill */}
+                            <polygon 
+                              points="10,105 100,85 180,95 240,40 330,65 420,30 490,45 490,110 10,110" 
+                              fill="url(#gold-grad)" 
+                            />
 
-                          {/* Sparkline path */}
-                          <path 
-                            d="M 10 105 L 100 85 L 180 95 L 240 40 L 330 65 L 420 30 L 490 45" 
-                            fill="none" 
-                            stroke="#E5B84B" 
-                            strokeWidth="3.5" 
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
+                            {/* Sparkline path */}
+                            <path 
+                              d="M 10 105 L 100 85 L 180 95 L 240 40 L 330 65 L 420 30 L 490 45" 
+                              fill="none" 
+                              stroke="#E5B84B" 
+                              strokeWidth="3.5" 
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
 
-                          {/* Knuckles */}
-                          <circle cx="240" cy="40" r="5" fill="#ffffff" stroke="#E5B84B" strokeWidth="2" />
-                          <circle cx="420" cy="30" r="5" fill="#ffffff" stroke="#E5B84B" strokeWidth="2" />
-                          
-                          {/* Tooltip logs */}
-                          <text x="245" y="32" fill="#E5B84B" fontSize="9" fontFamily="monospace" fontWeight="bold">ORD-9502: ₹1,350</text>
-                          <text x="400" y="20" fill="#E5B84B" fontSize="9" fontFamily="monospace" fontWeight="bold">NEW REVENUE PEAK</text>
-                        </svg>
+                            {/* Knuckles */}
+                            <circle cx="240" cy="40" r="5" fill="#ffffff" stroke="#E5B84B" strokeWidth="2" />
+                            <circle cx="420" cy="30" r="5" fill="#ffffff" stroke="#E5B84B" strokeWidth="2" />
+                            
+                            {/* Tooltip logs */}
+                            <text x="245" y="32" fill="#E5B84B" fontSize="9" fontFamily="monospace" fontWeight="bold">REALTIME VALUATION</text>
+                            <text x="380" y="20" fill="#E5B84B" fontSize="9" fontFamily="monospace" fontWeight="bold">₹{orders.reduce((acc, o) => acc + o.totalAmount, 0).toLocaleString()}</text>
+                          </svg>
+                        )}
                       </div>
                     </div>
 
@@ -978,38 +1196,46 @@ function MainERPApp() {
                       </div>
 
                       <div className="space-y-2.5">
-                        {inventory.map(item => {
-                          const isLow = item.stock < item.safetyLevel;
-                          return (
-                            <div key={item.sku} className={`p-3 rounded-lg border flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs font-mono transition-all ${isLow ? 'bg-red-950/20 border-red-900/40' : 'bg-neutral-950 border-neutral-800'}`}>
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-white uppercase">{item.sku}</span>
-                                  <span className="text-neutral-400 text-[11px]">• {item.name}</span>
+                        {inventory.length === 0 ? (
+                          <div className="p-8 text-center bg-neutral-950 rounded-lg border border-neutral-800 text-neutral-400 font-mono text-xs">
+                            <Boxes className="w-8 h-8 text-neutral-600 stroke-[1.5] mx-auto mb-2" />
+                            <span className="text-neutral-300 font-semibold block">No Inventory Items Tracked</span>
+                            <span className="text-neutral-500 text-[11px]">Add products in the Inventory stockroom to monitor safety thresholds and restock alerts.</span>
+                          </div>
+                        ) : (
+                          inventory.map(item => {
+                            const isLow = item.stock < item.safetyLevel;
+                            return (
+                              <div key={item.sku} className={`p-3 rounded-lg border flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs font-mono transition-all ${isLow ? 'bg-red-950/20 border-red-900/40' : 'bg-neutral-950 border-neutral-800'}`}>
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-white uppercase">{item.sku}</span>
+                                    <span className="text-neutral-400 text-[11px]">• {item.name}</span>
+                                  </div>
+                                  <div className="flex items-center gap-3 text-[10px] text-neutral-400">
+                                    <span>Warehouse Area: <strong className="text-white">{item.shelf}</strong></span>
+                                    <span>Safety Level Check: <strong className="text-neutral-200">{item.safetyLevel}</strong></span>
+                                    <span>Current Status: <strong className={isLow ? "text-red-400 font-bold animate-pulse" : "text-emerald-400"}>{isLow ? "STRESSED DEPL" : "SECURE"}</strong></span>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-3 text-[10px] text-neutral-400">
-                                  <span>Warehouse Area: <strong className="text-white">{item.shelf}</strong></span>
-                                  <span>Safety Level Check: <strong className="text-neutral-200">{item.safetyLevel}</strong></span>
-                                  <span>Current Status: <strong className={isLow ? "text-red-400 font-bold animate-pulse" : "text-emerald-400"}>{isLow ? "STRESSED DEPL" : "SECURE"}</strong></span>
-                                </div>
-                              </div>
 
-                              <div className="flex items-center gap-3">
-                                <div className="text-right">
-                                  <span className="text-[10px] text-neutral-500 block">CURRENT DEPOT STOCK</span>
-                                  <span className={`text-sm font-black font-mono ${isLow ? "text-red-400 scale-105" : "text-neutral-100"}`}>{item.stock} Billets</span>
+                                <div className="flex items-center gap-3">
+                                  <div className="text-right">
+                                    <span className="text-[10px] text-neutral-500 block">CURRENT DEPOT STOCK</span>
+                                    <span className={`text-sm font-black font-mono ${isLow ? "text-red-400 scale-105" : "text-neutral-100"}`}>{item.stock} Units</span>
+                                  </div>
+                                  <button 
+                                    onClick={() => handleQuickRestock(item.sku)}
+                                    className={`px-3 py-1.5 rounded text-[10px] font-bold tracking-wider uppercase transition-all flex items-center gap-1 shrink-0 ${isLow ? 'bg-red-500 hover:bg-red-400 text-neutral-950' : 'bg-neutral-800 hover:bg-neutral-700 text-white'}`}
+                                  >
+                                    <RefreshCw className="w-3 h-3" />
+                                    <span>Sync Restock +10</span>
+                                  </button>
                                 </div>
-                                <button 
-                                  onClick={() => handleQuickRestock(item.sku)}
-                                  className={`px-3 py-1.5 rounded text-[10px] font-bold tracking-wider uppercase transition-all flex items-center gap-1 shrink-0 ${isLow ? 'bg-red-500 hover:bg-red-400 text-neutral-950' : 'bg-neutral-800 hover:bg-neutral-700 text-white'}`}
-                                >
-                                  <RefreshCw className="w-3 h-3" />
-                                  <span>Sync Restock +10</span>
-                                </button>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })
+                        )}
                       </div>
                     </div>
 
@@ -1029,35 +1255,42 @@ function MainERPApp() {
                       </div>
 
                       <div className="space-y-2 max-h-56 overflow-y-auto">
-                        {notifications.map(n => (
-                          <div 
-                            key={n.id} 
-                            onClick={() => {
-                              // Mark as read
-                              setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item));
-                            }}
-                            className={`p-3 rounded-xl border flex gap-3 text-xs font-mono transition-all cursor-pointer ${n.read ? 'bg-neutral-950/30 border-neutral-800 text-neutral-400 scale-98' : 'bg-neutral-950 border-neutral-850 text-neutral-100 hover:border-neutral-750'}`}
-                          >
-                            <div className="pt-0.5">
-                              {n.type === 'low_stock' ? (
-                                <span className="w-2.5 h-2.5 rounded-full bg-red-500 block"></span>
-                              ) : n.type === 'new_order' ? (
-                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 block"></span>
-                              ) : n.type === 'payment_alert' ? (
-                                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 block"></span>
-                              ) : (
-                                <span className="w-2.5 h-2.5 rounded-full bg-blue-400 block"></span>
-                              )}
-                            </div>
-                            <div className="flex-1 space-y-1">
-                              <div className="flex items-center justify-between">
-                                <span className="font-bold text-white text-[11px]">{n.title}</span>
-                                <span className="text-[9px] text-neutral-500">{n.time}</span>
-                              </div>
-                              <p className="text-[10px] text-neutral-400 leading-relaxed font-sans">{n.message}</p>
-                            </div>
+                        {notifications.length === 0 ? (
+                          <div className="p-8 text-center text-neutral-500 font-mono text-xs">
+                            <Bell className="w-6 h-6 text-neutral-700 stroke-[1.5] mx-auto mb-1.5" />
+                            <span>No active warehouse alerts or notifications.</span>
                           </div>
-                        ))}
+                        ) : (
+                          notifications.map(n => (
+                            <div 
+                              key={n.id} 
+                              onClick={() => {
+                                // Mark as read
+                                setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item));
+                              }}
+                              className={`p-3 rounded-xl border flex gap-3 text-xs font-mono transition-all cursor-pointer ${n.read ? 'bg-neutral-950/30 border-neutral-800 text-neutral-400 scale-98' : 'bg-neutral-950 border-neutral-850 text-neutral-100 hover:border-neutral-750'}`}
+                            >
+                              <div className="pt-0.5">
+                                {n.type === 'low_stock' ? (
+                                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 block"></span>
+                                ) : n.type === 'new_order' ? (
+                                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 block"></span>
+                                ) : n.type === 'payment_alert' ? (
+                                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 block"></span>
+                                ) : (
+                                  <span className="w-2.5 h-2.5 rounded-full bg-blue-400 block"></span>
+                                )}
+                              </div>
+                              <div className="flex-1 space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-bold text-white text-[11px]">{n.title}</span>
+                                  <span className="text-[9px] text-neutral-500">{n.time}</span>
+                                </div>
+                                <p className="text-[10px] text-neutral-400 leading-relaxed font-sans">{n.message}</p>
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
 
@@ -1458,6 +1691,16 @@ function MainERPApp() {
 
           </AnimatePresence>
         </MainAppShell>
+
+      {/* ODOO ENTERPRISE DOCUMENT FORM SHEET MODAL */}
+      <OdooFormModal
+        isOpen={isFormModalOpen}
+        onClose={() => setIsFormModalOpen(false)}
+        record={selectedOdooRecord}
+        onStatusChange={handleModalStatusChange}
+        onAddChatterLog={handleAddChatter}
+        onPrint={() => window.print()}
+      />
 
       {/* --- MODAL 1: REGISTER CUSTOM SPORTS SALES ORDER (Interactive Billet and Specsheet Form) --- */}
       {isNewOrderModalOpen && (
