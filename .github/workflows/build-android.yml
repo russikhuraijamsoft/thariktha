@@ -1,110 +1,52 @@
-name: Build Android App
+name: Android packaging (manual, native prerequisites required)
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: Hosted HTTPS ERP API origin (native packages do not run Node)
+        required: true
+        type: string
+
+permissions:
+  contents: read
 
 jobs:
   build-android:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 45
+    env:
+      VITE_API_BASE_URL: ${{ inputs.api_base_url }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-
-      - name: Setup Java JDK
-        uses: actions/setup-java@v4
+          cache: npm
+      - name: Require reviewed native project and locked CLI (do not auto-scaffold)
+        run: node scripts/check-native.mjs
+      - run: npm ci
+      - uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      - name: Setup Android NDK
-        run: |
-          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909125"
-          echo "NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
-          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
-
-      - name: Setup Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
+          distribution: temurin
+          java-version: '21'
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: "aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android"
-
-      - name: Install Dependencies
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+      - name: Install native SDK prerequisite
         run: |
-          npm ci
-          npm install -D @tauri-apps/cli@latest
-
-      - name: Build Web Frontend
-        run: npm run build
-
-      - name: Generate Tauri Scaffold if Missing
-        run: |
-          if [ ! -d "src-tauri" ]; then
-            echo "Initializing Tauri configuration..."
-            npx @tauri-apps/cli init --app-name "Cricket-Closet-ERP" --window-title "Talk of the Town Cricket Closet ERP" --frontend-dist "../dist" --dev-url "http://localhost:5173" --ci
-          fi
-
-      - name: Initialize Tauri Android Project
-        run: |
-          if [ ! -d "src-tauri/gen/android" ]; then
-            npx @tauri-apps/cli android init --ci
-          fi
-
-      - name: Set Tauri bundle identifier
-        run: |
-          IDENT="com.russikhuraijamsoft.cricketcloset.erp"
-          echo "Setting Tauri bundle identifier to $IDENT"
-
-          if [ -f src-tauri/tauri.conf.json ]; then
-            node -e "const fs=require('fs');const f='src-tauri/tauri.conf.json';let c=JSON.parse(fs.readFileSync(f,'utf8'));c.tauri=c.tauri||{};c.tauri.bundle=c.tauri.bundle||{};c.tauri.bundle.identifier='"$IDENT"';fs.writeFileSync(f,JSON.stringify(c,null,2));console.log('Updated',f);"
-
-          elif [ -f src-tauri/tauri.conf.toml ]; then
-            # Update or append identifier in TOML without external dependencies
-            if grep -q '^identifier' src-tauri/tauri.conf.toml; then
-              sed -i "s/^identifier.*/identifier = \"$IDENT\"/" src-tauri/tauri.conf.toml
-            else
-              if grep -q '^\[tauri\.bundle\]' src-tauri/tauri.conf.toml; then
-                awk -v id="$IDENT" 'BEGIN{p=0} /^\[tauri\.bundle\]/{print; p=1; next} {print} END{if(p==0) {print "[tauri.bundle]"; print "identifier = \"" id "\"" }}' src-tauri/tauri.conf.toml > /tmp/t && mv /tmp/t src-tauri/tauri.conf.toml
-              else
-                cat >> src-tauri/tauri.conf.toml <<TOML
-
-[tauri.bundle]
-identifier = "$IDENT"
-TOML
-              fi
-            fi
-
-          else
-            echo "No existing tauri config found; creating src-tauri/tauri.conf.json"
-            mkdir -p src-tauri
-            cat > src-tauri/tauri.conf.json <<'JSON'
-{
-  "package": {
-    "productName": "Cricket-Closet-ERP",
-    "version": "0.1.0"
-  },
-  "tauri": {
-    "bundle": {
-      "identifier": "com.russikhuraijamsoft.cricketcloset.erp"
-    }
-  }
-}
-JSON
-          fi
-
-      - name: Build Android APK
-        run: npx @tauri-apps/cli android build --apk
-
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;26.1.10909125"
+          printf 'NDK_HOME=%s/ndk/26.1.10909125\n' "$ANDROID_HOME" >> "$GITHUB_ENV"
+      - run: npm run typecheck
+      - run: npm test
+      - name: Build webview assets only (shared hosted API)
+        run: npm run build:web
+      - name: Require reviewed Android project
+        run: test -f src-tauri/gen/android/gradlew
+      - name: Build debug APK (not a signed production release)
+        run: npm exec --no -- tauri android build --debug --apk
+      - uses: actions/upload-artifact@v4
         with:
-          name: Cricket-Closet-ERP-Android-APK
+          name: Cricket-Closet-ERP-Android-debug-unverified-on-device
           path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error

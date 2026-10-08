@@ -258,6 +258,22 @@
       },
       "required": ["id", "orderId", "customerName", "quantity", "dueDate", "stage", "createdAt", "updatedAt"]
     },
+    "Supplier": {
+      "title": "Vendor Supplier",
+      "description": "Raw willow mills, leather manufacturers, and print distributors",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "contactName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "createdAt", "updatedAt"]
+    },
     "Setting": {
       "title": "System Setting",
       "description": "Global ERP configurations, system variables, thresholds, and administrative states",

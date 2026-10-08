@@ -15,7 +15,9 @@
     "moduleDetection": "force",
     "allowJs": true,
     "jsx": "react-jsx",
-    "types": ["vite/client", "vite-plugin-pwa/client", "jest", "node"],
+    "types": ["node", "vite/client", "vite-plugin-pwa/client"],
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
     "paths": {
       "@/*": [
         "./*"
@@ -23,5 +25,7 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": ["src", "shared", "server", "tests", "server.ts", "vite.config.ts", "scripts/**/*.ts"],
+  "exclude": ["node_modules", "dist", "server-dist", "coverage", "src-tauri"]
 }
