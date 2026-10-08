@@ -1,7 +1,7 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    
+
     // 1. Global Zero-Trust Safety Net: Deny Everything by Default
     match /{allPaths=**} {
       allow read, write: if false;
@@ -30,8 +30,8 @@ service firebase.storage {
 
     function isStaff() {
       return isSignedIn() && getUserRole() in [
-        'super_admin', 'admin', 'manager', 'branch_manager', 
-        'manufacturing_staff', 'printing_staff', 'cashier', 
+        'super_admin', 'admin', 'manager', 'branch_manager',
+        'manufacturing_staff', 'printing_staff', 'cashier',
         'inventory_manager', 'staff'
       ];
     }
@@ -47,8 +47,8 @@ service firebase.storage {
     }
 
     function isValidDesignAsset() {
-      return request.resource.contentType.matches('image/.*') 
-        || request.resource.contentType == 'application/postscript' 
+      return request.resource.contentType.matches('image/.*')
+        || request.resource.contentType == 'application/postscript'
         || request.resource.contentType == 'image/svg+xml'
         || request.resource.contentType == 'application/pdf';
     }
@@ -63,7 +63,8 @@ service firebase.storage {
 
     // 1. User profile avatars (Ownership isolation)
     match /users/{userId}/avatars/{fileId} {
-      allow read: if isSignedIn();
+      // Only the owner can read/write their own avatar
+      allow read: if isOwner(userId);
       allow write: if isOwner(userId)
         && isWithinSizeLimit(5) // Max 5MB profile photos
         && isValidImage();
@@ -71,7 +72,8 @@ service firebase.storage {
 
     // 2. Apparel vector models & custom sublimation fabric design assets
     match /printing_designs/{jobId}/{fileId} {
-      allow read: if isSignedIn();
+      // Only staff can read/write design assets
+      allow read: if isStaff();
       allow write: if isStaff()
         && isWithinSizeLimit(25) // Up to 25MB for high density print PDFs / vectors
         && isValidDesignAsset();
@@ -79,7 +81,8 @@ service firebase.storage {
 
     // 3. Wood grain specs & bat manufacturing specifications
     match /manufacturing_blueprints/{jobId}/{fileId} {
-      allow read: if isSignedIn();
+      // Only staff can read/write manufacturing blueprints
+      allow read: if isStaff();
       allow write: if isStaff()
         && isWithinSizeLimit(15) // Max 15MB specs
         && isValidDesignAsset();
@@ -87,7 +90,8 @@ service firebase.storage {
 
     // 4. Invoices templates & financial transaction receipts (PDF only)
     match /invoices/{invoiceId}/{fileId} {
-      allow read: if isSignedIn();
+      // Only staff can read/write invoice files
+      allow read: if isStaff();
       allow write: if isStaff()
         && isWithinSizeLimit(10) // Max 10MB invoice files
         && isValidInvoicePDF();

@@ -1,11 +1,20 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import {defineConfig} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 export default defineConfig(() => {
   return {
+    build: {
+      sourcemap: false,
+      chunkSizeWarningLimit: 2500,
+      minify: 'esbuild',
+    },
     plugins: [
       react(),
       tailwindcss(),
@@ -75,7 +84,9 @@ export default defineConfig(() => {
             },
           ],
         },
+        strategies: 'generateSW',
         workbox: {
+          sourcemap: false,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
           navigateFallback: '/index.html',
           navigateFallbackDenylist: [/^\/api\/.*/],
@@ -125,20 +136,23 @@ export default defineConfig(() => {
           ],
         },
         devOptions: {
-          enabled: true,
+          enabled: false,
           type: 'module',
         },
+        disable: true,
       }),
     ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
-        'firebase/firestore': path.resolve(__dirname, './src/services/firestoreShim.ts'),
+        // SECURITY FIX: Removed firestore shim alias
+        // The app now uses the real Firebase Firestore SDK
+        // 'firebase/firestore': path.resolve(__dirname, './src/services/firestoreShim.ts'),
       },
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
+      // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},

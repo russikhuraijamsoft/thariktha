@@ -13,7 +13,7 @@ import {
   TrendingUp, DollarSign, Briefcase, Users, Calendar, Percent, Landmark
 } from 'lucide-react';
 import { db, isCloudConnected } from '../firebase';
-import { CRMCustomer } from './CRMView';
+import type { CRMCustomer } from './CRMView';
 
 export interface LoanRepayment {
   id: string;

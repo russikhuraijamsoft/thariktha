@@ -201,7 +201,47 @@ The following 12 JSON payloads represent standard pen-testing vectors designed t
 
 ---
 
-## 3. Threat Verification Test Suite
+## 3. Server-Side Security (NEW in v2.0)
+
+### 3.1 Authentication
+- All `/api/*` endpoints (except `/api/health` and `/api/db-status`) require a valid Firebase ID token
+- Tokens are verified server-side using the Firebase Admin SDK
+- User profiles are fetched from Firestore to determine role and branch
+
+### 3.2 Authorization
+- Role-based access control (RBAC) enforced via `requireRole()` middleware
+- Account status checked via `requireActive()` middleware
+- Suspended accounts are blocked from all API access
+
+### 3.3 Input Validation
+- All request bodies validated against strict schemas
+- Type checking, range validation, pattern matching
+- Unexpected fields rejected (strict mode)
+
+### 3.4 Rate Limiting
+- 100 requests per 15 minutes per IP address
+- Returns 429 with `Retry-After` header when exceeded
+
+### 3.5 Security Headers
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `X-XSS-Protection: 1; mode=block`
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains`
+- `Content-Security-Policy` with strict directives
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+
+### 3.6 CORS
+- Configurable via `ALLOWED_ORIGINS` environment variable
+- Preflight requests handled correctly
+
+### 3.7 Audit Logging
+- All security events logged with timestamp, user, IP, and user agent
+- Events: auth success/failure, access denied, privilege escalation attempts, validation failures, rate limit violations
+
+---
+
+## 4. Threat Verification Test Suite
 
 To run automated checks verifying these rules against our `firestore.rules`, use the test builder as mapped below:
 
@@ -269,3 +309,25 @@ describe('Zero-Trust Exploits Security Verification', () => {
     })).rejects.toThrow();
   });
 });
+```
+
+---
+
+## 5. Changelog
+
+### v2.0.0 (Enterprise Hardening)
+- **CRITICAL**: Removed Firestore shim alias -- app now uses real Firebase SDK
+- **CRITICAL**: Added Firebase Admin SDK for server-side token verification
+- **CRITICAL**: All `/api/*` endpoints now require authentication
+- **CRITICAL**: Fixed privilege escalation -- new users default to `customer` role
+- **HIGH**: Added role-based access control (RBAC) on all endpoints
+- **HIGH**: Added input validation schemas for all request bodies
+- **HIGH**: Added rate limiting (100 req/15min per IP)
+- **HIGH**: Added security headers (CSP, HSTS, X-Frame-Options, etc.)
+- **HIGH**: Tightened Firestore rules -- removed overly permissive reads
+- **HIGH**: Tightened Storage rules -- restricted to staff/owner only
+- **MEDIUM**: Added CORS configuration
+- **MEDIUM**: Added security audit logging
+- **MEDIUM**: Added global error handler
+- **MEDIUM**: Removed unused dependencies (puppeteer, mssql, @azure/identity, @google/genai)
+- **LOW**: Standardized on npm (removed bun.lock)

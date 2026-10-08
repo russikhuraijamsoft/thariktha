@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'manager' | 'manufacturing_staff' | 'printing_staff' | 'cashier' | 'inventory_manager';
+export type UserRole = 'super_admin' | 'manager' | 'manufacturing_staff' | 'printing_staff' | 'cashier' | 'inventory_manager' | 'customer';
 
 export interface UserProfile {
   uid: string;
@@ -76,6 +76,14 @@ export const ROLE_DEFINITIONS: Record<UserRole, AccessRoleDefinition> = {
     permissions: [
       'read:inventory', 'write:inventory',
       'read:branch', 'trigger:reorders'
+    ]
+  },
+  customer: {
+    id: 'customer',
+    name: 'Customer',
+    description: 'End customer with read-only access to own orders, invoices, and notifications.',
+    permissions: [
+      'read:own_orders', 'read:own_invoices'
     ]
   }
 };

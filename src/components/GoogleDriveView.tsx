@@ -4,9 +4,11 @@ import {
   Folder, Search, Trash2, ExternalLink, RefreshCw, CheckCircle2, 
   AlertCircle, Lock, ShieldCheck, Cloud, Plus, X, Eye, Sparkles, Filter
 } from 'lucide-react';
+import type { DriveFileItem 
+} from '../services/googleDriveService';
 import { 
   authenticateGoogleDrive, getCachedDriveToken, listDriveFiles, 
-  createDriveFolder, uploadFileToDrive, deleteDriveFile, DriveFileItem 
+  createDriveFolder, uploadFileToDrive, deleteDriveFile 
 } from '../services/googleDriveService';
 import { useAuth } from '../context/AuthContext';
 

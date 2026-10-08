@@ -59,15 +59,15 @@ export const ProposalView: React.FC = () => {
     const baseGp = stressScenario === 'margin_drop' || stressScenario === 'combined' ? gpPercent - 5 : gpPercent;
     
     // Constant Operating Expenses bases
-    let rentBase = 180000;
-    let salariesBase = 240000;
-    let electricityBase = 30000;
-    let marketingBase = 240000; // was 24,000 in original ledger, let's keep it accurate
-    let freightBase = 42000;
-    let repairsBase = 12000;
-    let insuranceBase = 12000;
-    let professionalBase = 24000;
-    let miscBase = 10000;
+    const rentBase = 180000;
+    const salariesBase = 240000;
+    const electricityBase = 30000;
+    const marketingBase = 240000; // was 24,000 in original ledger, let's keep it accurate
+    const freightBase = 42000;
+    const repairsBase = 12000;
+    const insuranceBase = 12000;
+    const professionalBase = 24000;
+    const miscBase = 10000;
 
     // Assets setup values (Fixed assets blocks)
     let pmNetBlock = 750000;

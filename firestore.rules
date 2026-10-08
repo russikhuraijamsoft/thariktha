@@ -8,9 +8,9 @@ service cloud.firestore {
     }
 
     // ==========================================
-    // GLOBAL REUSABLE HELPER FUNCTIONS (Phase 3)
+    // GLOBAL REUSABLE HELPER FUNCTIONS
     // ==========================================
-    
+
     function isSignedIn() {
       return request.auth != null;
     }
@@ -31,7 +31,6 @@ service cloud.firestore {
       return val is timestamp;
     }
 
-    // Role Fetching Logic (No custom claims trusted - fetched from users doc)
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
@@ -53,20 +52,24 @@ service cloud.firestore {
     }
 
     function isStaff() {
-      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         (getUserRole() in ['super_admin', 'admin', 'manager', 'branch_manager', 'manufacturing_staff', 'printing_staff', 'cashier', 'inventory_manager', 'staff']);
     }
 
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
     // ==========================================
-    // 2. VALIDATION BLUEPRINTS & MATG MATCHING
+    // 2. COLLECTION RULES
     // ==========================================
 
     // --- USERS COLLECTION ---
     match /users/{userId} {
-      allow get: if isSignedIn();
+      // Users can read their own profile; staff can read all
+      allow get: if isOwner(userId) || isStaff();
       allow list: if isStaff();
-      
-      // Helper for structural validation (Anti-Update-Gap)
+
       function isValidUser(data) {
         return data.keys().hasAll(['uid', 'name', 'email', 'roleId', 'branchId', 'status', 'createdAt', 'updatedAt'])
           && data.keys().size() == 8
@@ -80,13 +83,13 @@ service cloud.firestore {
           && isTimestamp(data.updatedAt);
       }
 
-      allow create: if isSignedIn() 
-        && userId == request.auth.uid 
+      // Self-registration: force customer role, no privilege escalation
+      allow create: if isSignedIn()
+        && userId == request.auth.uid
         && isValidUser(incoming())
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time
-        // Prevent unauthorized role escalation during self-registration
-        && incoming().roleId == 'customer'; 
+        && incoming().roleId == 'customer';
 
       allow update: if isSignedIn()
         && (userId == request.auth.uid || isAdmin())
@@ -94,9 +97,9 @@ service cloud.firestore {
         && incoming().updatedAt == request.time
         && incoming().createdAt == existing().createdAt
         && (
-          // Self update: No editing your own role or branch status
+          // Self update: only name, email, updatedAt
           (userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'email', 'updatedAt']))
-          // Admin update: Can modify role, status, and branch
+          // Admin update: can modify role, status, branch
           || isAdmin()
         );
 
@@ -105,15 +108,15 @@ service cloud.firestore {
 
     // --- ROLES COLLECTION ---
     match /roles/{roleId} {
-      allow read: if isSignedIn();
+      allow read: if isStaff();
       allow write: if isAdmin();
     }
 
     // --- CUSTOMERS COLLECTION ---
     match /customers/{customerId} {
-      // Direct get or query-level enforcement (Secure List Queries - Pillar 8)
-      allow get: if isSignedIn();
-      allow list: if isStaff() || (isSignedIn() && resource.data.email == request.auth.token.email);
+      // Only staff can read customer PII
+      allow get: if isStaff();
+      allow list: if isStaff();
 
       function isValidCustomer(data) {
         return data.keys().hasAll(['id', 'name', 'email', 'branchId', 'createdAt', 'updatedAt'])
@@ -141,8 +144,8 @@ service cloud.firestore {
 
     // --- TEAMS COLLECTION ---
     match /teams/{teamId} {
-      allow read: if isSignedIn();
-      
+      allow read: if isStaff();
+
       function isValidTeam(data) {
         return data.keys().hasAll(['id', 'name', 'sportType', 'customerId', 'branchId', 'createdAt', 'updatedAt'])
           && data.id is string
@@ -219,7 +222,6 @@ service cloud.firestore {
       allow update: if isStaff()
         && isValidInventory(incoming())
         && (
-          // Standard Staff update to counts
           incoming().diff(existing()).affectedKeys().hasOnly(['quantityInStock', 'lastStockTakeAt'])
           || isAdmin() || isBranchManager()
         );
@@ -229,8 +231,8 @@ service cloud.firestore {
 
     // --- ORDERS COLLECTION ---
     match /orders/{orderId} {
-      // Secure List Queries - enforce reading your own branch orders or self orders (Pillar 8)
-      allow get: if isSignedIn();
+      // Staff can read all; customers can read their own
+      allow get: if isStaff() || (isSignedIn() && resource.data.customerId == request.auth.uid);
       allow list: if isStaff() || (isSignedIn() && resource.data.customerId == request.auth.uid);
 
       function isValidOrder(data) {
@@ -260,7 +262,7 @@ service cloud.firestore {
         && (
           // Clients can cancel their own pending/draft orders
           (incoming().customerId == request.auth.uid && existing().status in ['draft', 'pending'] && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) && incoming().status == 'canceled')
-          // Staff can update manufacturing cycles & quantities
+          // Staff can update
           || isStaff()
         );
 
@@ -269,7 +271,8 @@ service cloud.firestore {
 
     // --- INVOICES COLLECTION ---
     match /invoices/{invoiceId} {
-      allow get: if isSignedIn();
+      // Only staff can read invoices
+      allow get: if isStaff();
       allow list: if isStaff();
 
       function isValidInvoice(data) {
@@ -299,6 +302,7 @@ service cloud.firestore {
 
     // --- TRANSACTIONS COLLECTION ---
     match /transactions/{transactionId} {
+      // Only staff can read financial transactions
       allow read: if isStaff();
 
       function isValidTransaction(data) {
@@ -345,9 +349,7 @@ service cloud.firestore {
       allow update: if isStaff()
         && isValidMJob(incoming())
         && (
-          // Craftsman assigned updates step status only
           (getUserRole() == 'craftsman' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'notes', 'qualityScore']))
-          // Managers/Admins full access
           || isBranchManager() || isAdmin()
         );
 
@@ -375,7 +377,6 @@ service cloud.firestore {
       allow update: if isStaff()
         && isValidPJob(incoming())
         && (
-          // Printers edit status and metrics only
           (getUserRole() == 'printer' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'completedDate']))
           || isBranchManager() || isAdmin()
         );
@@ -409,8 +410,10 @@ service cloud.firestore {
 
     // --- NOTIFICATIONS COLLECTION ---
     match /notifications/{notifId} {
+      // Users can read their own notifications; staff can read all
       allow get: if isSignedIn() && (resource.data.recipientId == request.auth.uid || isStaff());
-      allow list: if isSignedIn(); // queries must filter by recipientId or branchId (Pillar 8)
+      // List queries must filter by recipientId or branchId
+      allow list: if isSignedIn();
 
       function isValidNotification(data) {
         return data.keys().hasAll(['id', 'recipientId', 'category', 'title', 'message', 'read', 'branchId', 'createdAt'])
@@ -433,7 +436,6 @@ service cloud.firestore {
         && isValidNotification(incoming())
         && incoming().createdAt == existing().createdAt
         && (
-          // Self update to mark read status
           (resource.data.recipientId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['read']))
           || isStaff()
         );
@@ -443,7 +445,6 @@ service cloud.firestore {
 
     // --- ANALYTICS COLLECTION ---
     match /analytics/{analyticsId} {
-      // Hardened ABAC: Only Managers and Admins read/write macro analytics
       allow get: if isBranchManager() || isAdmin();
       allow list: if isBranchManager() || isAdmin();
 
@@ -459,7 +460,7 @@ service cloud.firestore {
           && isTimestamp(data.updatedAt);
       }
 
-      allow create, update: if isAdmin() 
+      allow create, update: if isAdmin()
         && isValidId(analyticsId)
         && isValidAnalytics(incoming())
         && incoming().updatedAt == request.time;
@@ -499,9 +500,9 @@ service cloud.firestore {
 
     // --- SETTINGS COLLECTION ---
     match /settings/{settingId} {
-      // Everyone in the ERP must be signed in to pull settings
-      allow get: if isSignedIn();
-      allow list: if isStaff();
+      // Only admins can read/write settings
+      allow get: if isAdmin();
+      allow list: if isAdmin();
 
       function isValidSetting(data) {
         return data.keys().hasAll(['id', 'updatedBy', 'updatedAt', 'configMap'])
@@ -509,11 +510,9 @@ service cloud.firestore {
           && data.id is string
           && data.updatedBy == request.auth.uid
           && isTimestamp(data.updatedAt)
-          // Ensure configMap is an actual dictionary map and not null/string
           && data.configMap is map;
       }
 
-      // Only super_admin/admin can create or update settings
       allow create: if isAdmin()
         && isValidId(settingId)
         && isValidSetting(incoming())

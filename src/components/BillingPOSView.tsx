@@ -23,8 +23,8 @@ import {
   Briefcase, Coffee, Wrench, ShieldCheck, UserCheck, RefreshCw, Layers
 } from 'lucide-react';
 import { db, isCloudConnected } from '../firebase';
-import { ProductItem } from './InventoryView';
-import { CRMCustomer } from './CRMView';
+import type { ProductItem } from './InventoryView';
+import type { CRMCustomer } from './CRMView';
 import { LoansAdvancesView } from './LoansAdvancesView';
 import brandLogo from '../assets/images/talk_of_the_town_logo_1780894452079.png';
 

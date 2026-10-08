@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { 
   collection, 
   doc, 
@@ -11,112 +11,17 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { db } from '../firebase';
-
-// Helper enum for Operation Types to prevent any linting or compilation errors
-export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-// Global Interfaces for state modeling based on ERP specifications
-export interface ERPOrder {
-  id: string;
-  customerId: string;
-  customerName: string;
-  itemSummary: string;
-  itemType: 'bat' | 'jersey' | 'balls' | 'repairs';
-  specs: {
-    willowGrade?: 'Grade-1 English Willow' | 'Grade-2 English Willow';
-    weight?: string;
-    gripColor?: string;
-    handleType?: 'Round' | 'Oval';
-    sublimationDesign?: string;
-    jerseySize?: string;
-    repairCategory?: string;
-  };
-  totalAmount: number;
-  paymentStatus: 'unpaid' | 'partially_paid' | 'paid';
-  status: 'draft' | 'pending' | 'manufacturing' | 'printing' | 'ready' | 'delivered';
-  promisedDate: string;
-  notes: string;
-  createdAt: string;
-}
-
-export interface ERPInventory {
-  sku: string;
-  name: string;
-  category: 'bats' | 'balls' | 'apparel' | 'protective';
-  stock: number;
-  safetyLevel: number;
-  reorderPoint: number;
-  shelf: string;
-  price: number;
-  rawCost: number;
-}
-
-export interface ERPJob {
-  id: string;
-  orderId: string;
-  customerName: string;
-  sku: string;
-  type: 'mill' | 'print' | 'repair';
-  status: 'queued' | 'splitting' | 'shaping' | 'pressing' | 'curing' | 'final-tuning' | 'quality-check' | 'complete';
-  priority: 'low' | 'medium' | 'high' | 'rush';
-  notes: string;
-  craftsman: string;
-  qualityScore?: number;
-}
-
-export interface ERPCustomer {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  affiliation: 'Academy' | 'Club Team' | 'Individual Athlete';
-  activeOrders: number;
-  branch: string;
-  address: string;
-}
-
-export interface ERPInvoice {
-  id: string;
-  orderId: string;
-  customerName: string;
-  dueDate: string;
-  amount: number;
-  paid: number;
-  status: 'unpaid' | 'partially_paid' | 'paid' | 'voided';
-}
-
-export interface ERPTransaction {
-  id: string;
-  invoiceId: string;
-  amount: number;
-  type: 'incoming_payment' | 'vendor_payout';
-  method: 'bank_transfer' | 'cash' | 'card';
-  date: string;
-  reference: string;
-}
-
-export interface ERPNotification {
-  id: string;
-  title: string;
-  message: string;
-  type: 'low_stock' | 'new_order' | 'job_milestone' | 'payment_alert';
-  time: string;
-  read: boolean;
-}
-
-export interface TelemetryLog {
-  id: string;
-  event: string;
-  status: 'info' | 'syncing' | 'synced';
-  timestamp: string;
-}
+import type {
+  ERPOrder,
+  ERPInventory,
+  ERPJob,
+  ERPCustomer,
+  ERPInvoice,
+  ERPTransaction,
+  ERPNotification,
+  TelemetryLog,
+  ERPBranch
+} from '../types/erp';
 
 // Registry for state setters so modifications propagate in real-time to the main app view
 type StateSyncSetters = {
@@ -242,13 +147,13 @@ class ERPIntegrationService {
     const rawQueue = localStorage.getItem(queueKey);
     if (!rawQueue) return;
 
-    let queueList = JSON.parse(rawQueue);
-    let pendingItems = queueList.filter((x: any) => x.status === 'pending' || x.status === 'failed');
+    const queueList = JSON.parse(rawQueue);
+    const pendingItems = queueList.filter((x: any) => x.status === 'pending' || x.status === 'failed');
     if (pendingItems.length === 0) return;
 
     this.logTelemetry(`Sync Queue: Transmitting ${pendingItems.length} cached operation packets to Firestore...`, 'syncing');
 
-    for (let item of queueList) {
+    for (const item of queueList) {
       if (item.status === 'success' || item.status === 'conflict') continue;
 
       try {
@@ -379,7 +284,7 @@ class ERPIntegrationService {
    * Create an integrated Order spanning CRM, Supply Chain (depletion), Fabrication workshops, POS Billing, and alerts.
    */
   public async createIntegratedOrder(
-    branchScope: 'Melbourne Closets' | 'London Closets',
+    branchScope: ERPBranch,
     orderData: Partial<ERPOrder> & { customQty: number }
   ): Promise<string> {
     const orderId = orderData.id || `ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -609,7 +514,7 @@ class ERPIntegrationService {
    * Reconcile invoice ledger, write incoming payment audit logs, and trigger order alert status updates.
    */
   public async reconcileIntegratedPayment(
-    branchScope: 'Melbourne Closets' | 'London Closets',
+    branchScope: ERPBranch,
     paymentDetails: {
       invoiceId: string;
       payAmount: number;

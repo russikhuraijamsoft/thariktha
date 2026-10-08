@@ -55,7 +55,7 @@ import {
   Cell 
 } from 'recharts';
 import { db, isCloudConnected } from '../firebase';
-import { UserProfile } from '../types/auth';
+import type { UserProfile } from '../types/auth';
 
 // --- STACKS & STRUCTS ---
 export interface Player {

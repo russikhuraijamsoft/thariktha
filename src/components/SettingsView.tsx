@@ -10,7 +10,8 @@ import { db, isCloudConnected } from '../firebase';
 import { erpIntegrationService } from '../services/erpIntegrationService';
 import { doc, getDoc, setDoc, updateDoc, collection, addDoc, getDocs } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
-import { UserRole, UserProfile } from '../types/auth';
+import type { UserRole} from '../types/auth';
+import { UserProfile } from '../types/auth';
 import { PWAInstallModal } from './PWAInstallModal';
 
 interface SettingsViewProps {
@@ -1896,7 +1897,7 @@ Designed & verified on GCP App Engine.
                         onClick={() => {
                           if (typeof window !== 'undefined' && 'caches' in window) {
                             caches.keys().then((names) => {
-                              for (let name of names) caches.delete(name);
+                              for (const name of names) caches.delete(name);
                             });
                             setCacheSize('0.00 KB');
                             addSecurityAuditLog('PWA Cache Evicted', 'Busted custom static asset cache store cache-v1. Client forced reload cache pipelines.');

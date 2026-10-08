@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ROLE_DEFINITIONS } from '../types/auth';
-import { 
-  erpIntegrationService, 
-  ERPOrder, 
-  ERPInventory, 
-  ERPCustomer, 
+import { erpIntegrationService } from '../services/erpIntegrationService';
+import type {
+  ERPOrder,
+  ERPInventory,
+  ERPCustomer,
   ERPNotification,
   TelemetryLog
-} from '../services/erpIntegrationService';
+} from '../types/erp';
 import { 
   Network, 
   Workflow, 

@@ -1,17 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  sendPasswordResetEmail, 
+import type {
+  User as FirebaseUser} from 'firebase/auth';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut,
   GoogleAuthProvider,
   signInWithPopup,
-  User as FirebaseUser,
   onAuthStateChanged
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db, isCloudConnected } from '../firebase';
-import { UserProfile, UserRole, ROLE_DEFINITIONS } from '../types/auth';
+import type { UserProfile, UserRole} from '../types/auth';
+import { ROLE_DEFINITIONS } from '../types/auth';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -114,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isSandboxMode, setIsSandboxMode] = useState<boolean>(!isCloudConnected);
-  
+
   // Staff database which supports persistent simulations in local session
   const [staffMembers, setStaffMembers] = useState<UserProfile[]>(() => {
     try {
@@ -140,16 +142,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Retrieve User profile document from firestore
             const userRef = doc(db, 'users', firebaseUser.uid);
             const userSnap = await getDoc(userRef);
-            
+
             if (userSnap.exists()) {
               setProfile(userSnap.data() as UserProfile);
             } else {
-              // Creating a generic Customer profile if document is absent
+              // SECURITY FIX: Default new users to 'customer' role, NOT 'super_admin'
+              // Admin assignment must be done explicitly by an existing admin
               const newProfile: UserProfile = {
                 uid: firebaseUser.uid,
-                name: firebaseUser.displayName || 'Default ERP User',
+                name: firebaseUser.displayName || 'New User',
                 email: firebaseUser.email || '',
-                roleId: 'super_admin', // Default to admin for easiest playout initialization
+                roleId: 'customer', // Safe default - no privileges
                 branchId: 'Melbourne Closets',
                 status: 'active',
                 createdAt: new Date().toISOString(),
@@ -160,12 +163,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           } catch (e) {
             console.error("Error matching Firestore custom profile: ", e);
-            // Standby mock profile lookup for failsafe
+            // SECURITY FIX: Fallback also defaults to customer, not super_admin
             setProfile({
               uid: firebaseUser.uid,
               name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Cloud Active Worker',
               email: firebaseUser.email || '',
-              roleId: 'super_admin',
+              roleId: 'customer', // Safe default
               branchId: 'Melbourne Closets',
               status: 'active',
               createdAt: new Date().toISOString(),
@@ -236,9 +239,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const mockProfile: UserProfile = matchedStaff || {
       uid: mockUser.uid,
-      name: mockUser.displayName || 'Sandbox Admin',
+      name: mockUser.displayName || 'Sandbox User',
       email: email,
-      roleId: 'super_admin',
+      roleId: 'customer', // SECURITY FIX: Default to customer, not super_admin
       branchId: 'Melbourne Closets',
       status: 'active',
       createdAt: new Date().toISOString(),
@@ -283,28 +286,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Authenticate with actual Firebase auth
           await signInWithEmailAndPassword(auth, email, pass);
         } catch (cloudErr: any) {
-          console.warn("Cloud login failed, attempting auto-registration or fallback to sandbox:", cloudErr);
-          try {
-            // Try auto-creating account on Firebase if not registered yet
-            const cred = await createUserWithEmailAndPassword(auth, email, pass);
-            const userRef = doc(db, 'users', cred.user.uid);
-            const matchedStaff = staffMembers.find(s => s.email.toLowerCase() === email.toLowerCase());
-            const newProfile: UserProfile = matchedStaff || {
-              uid: cred.user.uid,
-              name: email.split('@')[0],
-              email: email,
-              roleId: 'super_admin',
-              branchId: 'Melbourne Closets',
-              status: 'active',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            };
-            await setDoc(userRef, newProfile);
-            setProfile(newProfile);
-            return;
-          } catch (regErr) {
-            console.warn("Cloud user auto-registration also failed, logging in via Sandbox mode", regErr);
-          }
+          console.warn("Cloud login failed, attempting fallback to sandbox:", cloudErr);
+          // SECURITY FIX: Do NOT auto-create accounts on login failure
+          // This was a major vulnerability - anyone could register as super_admin
           performSandboxLogin(email, pass);
         }
       } else {
@@ -343,11 +327,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!isSandboxMode && isCloudConnected) {
         const cred = await createUserWithEmailAndPassword(auth, email, pass);
         const userRef = doc(db, 'users', cred.user.uid);
+        // SECURITY FIX: Force customer role regardless of what was passed
+        // Role assignment must be done by an admin through updateUserRole
         const newProfile: UserProfile = {
           uid: cred.user.uid,
           name,
           email,
-          roleId: role,
+          roleId: 'customer', // Always customer on self-registration
           branchId,
           status: defaultStatus,
           createdAt: new Date().toISOString(),
@@ -362,7 +348,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           uid: newUid,
           name,
           email,
-          roleId: role,
+          roleId: 'customer', // SECURITY FIX: Always customer on self-registration
           branchId,
           status: defaultStatus,
           createdAt: new Date().toISOString(),
@@ -397,7 +383,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Mock simulation reset email success response
       const matched = staffMembers.some(s => s.email.toLowerCase() === email.toLowerCase());
       if (matched) {
-        alert(`Sandbox Mode: Password reset instructions dispatched to account '${email}'! In offline sandbox, simply sign in with standard password '[role_id]123' (e.g. manager123) or 'admin123'`);
+        alert(`Sandbox Mode: Password reset instructions dispatched to account '${email}'!`);
       } else {
         throw new Error("Specified user email is not registered inside our staff directory database.");
       }

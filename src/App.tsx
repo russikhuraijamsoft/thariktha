@@ -1,5 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { erpIntegrationService } from './services/erpIntegrationService';
+import type {
+  ERPOrder,
+  ERPInventory,
+  ERPJob,
+  ERPCustomer,
+  ERPInvoice,
+  ERPTransaction,
+  ERPNotification,
+  ERPBranch,
+  ERPThemeMode,
+  ERPCurrency,
+  ERPRouteStop,
+  ERPDashboardTab
+} from './types/erp';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Database, 
@@ -189,94 +203,7 @@ const PREMIUM_GLOVES_STOCK = [
 ];
 
 
-// --- Types for Core ERP State ---
-interface ERPOrder {
-  id: string;
-  customerId: string;
-  customerName: string;
-  itemSummary: string;
-  itemType: 'bat' | 'jersey' | 'balls' | 'repairs';
-  specs: {
-    willowGrade?: 'Grade-1 English Willow' | 'Grade-2 English Willow';
-    weight?: string;
-    gripColor?: string;
-    handleType?: 'Round' | 'Oval';
-    sublimationDesign?: string;
-    jerseySize?: string;
-    repairCategory?: string;
-  };
-  totalAmount: number;
-  paymentStatus: 'unpaid' | 'partially_paid' | 'paid';
-  status: 'draft' | 'pending' | 'manufacturing' | 'printing' | 'ready' | 'delivered';
-  promisedDate: string;
-  notes: string;
-  createdAt: string;
-}
-
-interface ERPInventory {
-  sku: string;
-  name: string;
-  category: 'bats' | 'balls' | 'apparel' | 'protective';
-  stock: number;
-  safetyLevel: number;
-  reorderPoint: number;
-  shelf: string;
-  price: number;
-  rawCost: number;
-}
-
-interface ERPJob {
-  id: string;
-  orderId: string;
-  customerName: string;
-  sku: string;
-  type: 'mill' | 'print' | 'repair';
-  status: 'queued' | 'splitting' | 'shaping' | 'pressing' | 'curing' | 'final-tuning' | 'quality-check' | 'complete';
-  priority: 'low' | 'medium' | 'high' | 'rush';
-  notes: string;
-  craftsman: string;
-  qualityScore?: number;
-}
-
-interface ERPCustomer {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  affiliation: 'Academy' | 'Club Team' | 'Individual Athlete';
-  activeOrders: number;
-  branch: string;
-  address: string;
-}
-
-interface ERPInvoice {
-  id: string;
-  orderId: string;
-  customerName: string;
-  dueDate: string;
-  amount: number;
-  paid: number;
-  status: 'unpaid' | 'partially_paid' | 'paid' | 'voided';
-}
-
-interface ERPTransaction {
-  id: string;
-  invoiceId: string;
-  amount: number;
-  type: 'incoming_payment' | 'vendor_payout';
-  method: 'bank_transfer' | 'cash' | 'card';
-  date: string;
-  reference: string;
-}
-
-interface ERPNotification {
-  id: string;
-  title: string;
-  message: string;
-  type: 'low_stock' | 'new_order' | 'job_milestone' | 'payment_alert';
-  time: string;
-  read: boolean;
-}
+// --- Types for Core ERP State (imported from types/erp.ts) ---
 
 export default function App() {
   return (
@@ -316,17 +243,17 @@ function AppContent() {
 function MainERPApp() {
   const { profile, logout } = useAuth();
   
-  const [activeTab, setActiveTab ] = useState<'dashboard' | 'orders' | 'inventory' | 'manufacturing' | 'printing' | 'servicing' | 'notifications' | 'customers' | 'billing' | 'staff' | 'routing' | 'architecture' | 'reports' | 'settings'>('dashboard');
-  const [branchScope, setBranchScope] = useState<'Melbourne Closets' | 'London Closets'>((profile?.branchId as any) || 'Melbourne Closets');
-  const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
+  const [activeTab, setActiveTab] = useState<ERPDashboardTab>('dashboard');
+  const [branchScope, setBranchScope] = useState<ERPBranch>((profile?.branchId as ERPBranch) || 'Melbourne Closets');
+  const [themeMode, setThemeMode] = useState<ERPThemeMode>('light');
 
   // --- Gotham/Bento Dashboard Mockup Specific States ---
   const [selectedGloveIdx, setSelectedGloveIdx] = useState<number>(0);
-  const [activeCurrency, setActiveCurrency] = useState<'INR' | 'USD' | 'AUD'>('INR');
+  const [activeCurrency, setActiveCurrency] = useState<ERPCurrency>('INR');
   const [isSimulatingBalance, setIsSimulatingBalance] = useState<boolean>(false);
   const [simulateProgress, setSimulateProgress] = useState<number>(0);
   const [simulateValue, setSimulateValue] = useState<string | null>(null);
-  const [activeRouteStop, setActiveRouteStop] = useState<'batala' | 'meerut' | 'bhilwara' | 'imphal' | null>(null);
+  const [activeRouteStop, setActiveRouteStop] = useState<ERPRouteStop>(null);
 
 
   // --- Prepopulated ERP Interactive Local States ---
@@ -444,8 +371,7 @@ function MainERPApp() {
   ]);
 
   // --- Client Mock Event Streams for PWA Sync telemetry panel ---
-  const [telemetryLogs, setTelemetryLogs] = useState<{ id: string; event: string; status: 'info' | 'syncing' | 'synced'; timestamp: string }[]>([
-    { id: "TLM-1", event: "Offline buffer loaded. Local IndexedDB persistent store active.", status: "info", timestamp: "05:03:12" },
+  const [telemetryLogs, setTelemetryLogs] = useState<{ id: string; event: string; status: 'info' | 'syncing' | 'synced'; timestamp: string }[]>([    { id: "TLM-1", event: "Offline buffer loaded. Local IndexedDB persistent store active.", status: "info", timestamp: "05:03:12" },
     { id: "TLM-2", event: "PWA synchronization connection established over Cloud Run tunnel secure socket.", status: "synced", timestamp: "05:03:15" }
   ]);
 

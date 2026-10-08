@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { UserRole, ROLE_DEFINITIONS } from '../types/auth';
+import type { UserRole} from '../types/auth';
+import { ROLE_DEFINITIONS } from '../types/auth';
 import { 
   Trophy, 
   Mail, 

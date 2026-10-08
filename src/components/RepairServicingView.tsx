@@ -410,7 +410,7 @@ export const RepairServicingView: React.FC<{
 
   // Workflow Stage advancement + Inventory / Bookkeeping Integration
   const advanceWorkflow = async (ticketId: string, nextStage: ServiceWorkflowStage) => {
-    let targetObj = tickets.find(t => t.id === ticketId);
+    const targetObj = tickets.find(t => t.id === ticketId);
     if (!targetObj) return;
 
     const notesUpdated = [

@@ -51,7 +51,7 @@ import {
   Scale
 } from 'lucide-react';
 import { db, isCloudConnected } from '../firebase';
-import { UserProfile } from '../types/auth';
+import type { UserProfile } from '../types/auth';
 
 // --- STAGES DATA ---
 export const WORKFLOW_STAGES = [

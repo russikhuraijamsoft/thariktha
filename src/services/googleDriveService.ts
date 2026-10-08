@@ -63,7 +63,7 @@ export async function listDriveFiles(
   options?: { folderId?: string; searchQuery?: string; mimeTypeFilter?: string }
 ): Promise<DriveFileItem[]> {
   try {
-    let qParts: string[] = ['trashed = false'];
+    const qParts: string[] = ['trashed = false'];
 
     if (options?.folderId) {
       qParts.push(`'${options.folderId}' in parents`);
