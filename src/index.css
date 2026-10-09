@@ -1,5 +1,47 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
-@import "tailwindcss";
+/* Only active application sources contribute utility classes; legacy-ui is reference-only. */
+@import "tailwindcss" source(none);
+@source "./";
+@source "../index.html";
+
+@layer components {
+  .erp-button, .erp-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors;
+  }
+  .erp-button {
+    @apply border-neutral-600 bg-neutral-800 text-neutral-100 hover:bg-neutral-700;
+  }
+  .erp-primary {
+    @apply border-[#875a7b] bg-[#714B67] text-white hover:bg-[#875a7b];
+  }
+  .erp-button:disabled, .erp-primary:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+  .erp-button:focus-visible, .erp-primary:focus-visible, .erp-input:focus-visible {
+    @apply outline-2 outline-offset-2 outline-purple-400;
+  }
+  .erp-input {
+    @apply mt-1 block w-full rounded-lg border border-neutral-600 bg-[#171b22] px-3 py-2 text-sm text-neutral-100;
+  }
+  .erp-input:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+  .erp-panel {
+    @apply rounded-xl border border-neutral-700 bg-[#1e232a] p-4;
+  }
+  .erp-error {
+    @apply rounded-xl border border-red-800 bg-red-950/40 p-4 text-red-200;
+  }
+  .erp-table {
+    @apply w-full text-left text-sm;
+  }
+  .erp-table th, .erp-table td {
+    @apply border-b border-neutral-700 p-3 align-top;
+  }
+  .erp-table th {
+    @apply bg-neutral-900 font-semibold text-neutral-300;
+  }
+}
 
 @theme {
   --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
@@ -79,6 +121,113 @@
   background-color: var(--bg-card) !important;
   color: var(--text-main) !important;
 }
+
+/* Original Cricket Closet visual shell; scoped away from sign-in/session UI. */
+.original-design {
+  background: var(--bg-main);
+  color: var(--text-main);
+  --bg-main: #0a0a0a;
+  --bg-card: #171717;
+  --bg-inner: #111111;
+  --border-card: #303030;
+  --text-main: #fffaf0;
+  --text-sub: #c8c0b2;
+  --text-muted: #aaa497;
+}
+.original-design.theme-light {
+  --bg-main: #faf9f5;
+  --bg-card: #ffffff;
+  --bg-inner: #f4f3eb;
+  --border-card: #e3dec9;
+  --text-main: #141312;
+  --text-sub: #555047;
+  --text-muted: #716c61;
+}
+.original-design .original-topbar,
+.original-design .erp-panel {
+  background-color: var(--bg-card);
+  border-color: var(--border-card);
+  color: var(--text-main);
+}
+.original-design .erp-panel { border-radius: 1rem; }
+.original-design .erp-button {
+  background-color: var(--bg-inner);
+  border-color: var(--border-card);
+  color: var(--text-main);
+}
+.original-design .erp-button:hover:not(:disabled) { border-color: #b88920; }
+.original-design .erp-primary {
+  background-color: #e5b84b;
+  border-color: #d4a339;
+  color: #141312;
+  font-weight: 700;
+}
+.original-design .erp-primary:hover:not(:disabled) { background-color: #f1c963; }
+.original-design .erp-input {
+  background-color: var(--bg-inner);
+  border-color: var(--border-card);
+  color: var(--text-main);
+}
+.original-design .erp-button:focus-visible,
+.original-design .erp-primary:focus-visible,
+.original-design .erp-input:focus-visible { outline-color: #b88920; }
+.original-design .erp-empty {
+  padding: 2rem;
+  text-align: center;
+  border: 1px dashed var(--border-card);
+  border-radius: 1rem;
+  background-color: var(--bg-card);
+}
+.original-design .erp-table th,
+.original-design .erp-table td { border-color: var(--border-card); }
+.original-design .erp-table th {
+  background-color: var(--bg-inner);
+  color: var(--text-sub);
+}
+.original-design [class~="bg-[#1e232a]"],
+.original-design [class~="bg-[#171b22]"],
+.original-design [class~="bg-[#181c22]"],
+.original-design [class~="bg-[#1b1f26]"],
+.original-design [class~="bg-[#16191f]"],
+.original-design [class~="bg-[#252b34]"],
+.original-design [class~="bg-[#12151b]"],
+.original-design [class~="bg-[#29303d]"] {
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  border-color: var(--border-card);
+}
+.original-design [class~="bg-[#714B67]"] {
+  background-color: #e5b84b;
+  color: #141312 !important;
+}
+.original-design [class~="border-[#714B67]"] { border-color: #b88920; }
+.original-design [class~="text-purple-300"] { color: #b88920; }
+.original-design [role="dialog"][class~="bg-neutral-950/80"] {
+  background-color: rgb(0 0 0 / 0.65) !important;
+}
+/* The already migrated CRM uses slate utilities; align them to the original palette. */
+.original-design [aria-label="Customer CRM workspace"] {
+  background-color: var(--bg-inner);
+  color: var(--text-main);
+  border-color: var(--border-card);
+}
+.original-design [aria-label="Customer CRM workspace"] .bg-white {
+  background-color: var(--bg-card);
+  color: var(--text-main);
+}
+.original-design [aria-label="Customer CRM workspace"] .bg-slate-100 {
+  background-color: var(--bg-inner);
+}
+.original-design [aria-label="Customer CRM workspace"] [class*="border-slate-"] {
+  border-color: var(--border-card);
+}
+.original-design [aria-label="Customer CRM workspace"] .text-slate-500,
+.original-design [aria-label="Customer CRM workspace"] .text-slate-600 { color: var(--text-sub); }
+.original-design [aria-label="Customer CRM workspace"] > header {
+  background-image: linear-gradient(to right, #24221f, #141312);
+  color: #fffaf0 !important;
+}
+.original-design [aria-label="Customer CRM workspace"] .bg-slate-900 { color: #fffaf0 !important; }
 
 /* Standalone PWA & Mobile Enhancements (Web, Android, iOS) */
 html, body {

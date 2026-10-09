@@ -1,24 +1,19 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import {defineConfig} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 export default defineConfig(() => {
   return {
-    build: {
-      sourcemap: false,
-      chunkSizeWarningLimit: 2500,
-      minify: 'esbuild',
-    },
     plugins: [
       react(),
       tailwindcss(),
       VitePWA({
+        // Workbox's terser render hook does not complete reliably on the supported
+        // Termux/Android toolchain. Keep the web build deterministic until a
+        // compatible PWA generation path is validated.
+        disable: true,
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'favicon.png', 'apple-touch-icon.png', 'icon.svg'],
         manifest: {
@@ -84,12 +79,13 @@ export default defineConfig(() => {
             },
           ],
         },
-        strategies: 'generateSW',
         workbox: {
-          sourcemap: false,
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+          globPatterns: ['assets/**/*.{js,css,woff,woff2}', 'index.html', '*.{ico,png,svg}'],
+          globIgnores: ['**/*.map', '**/*.cjs', '**/server*', '**/api/**', '**/auth/**'],
+          cleanupOutdatedCaches: true,
           navigateFallback: '/index.html',
-          navigateFallbackDenylist: [/^\/api\/.*/],
+          navigateFallbackDenylist: [/^\/api(?:\/|$)/, /^\/(?:auth|__|server-dist)(?:\/|$)/, /\.(?:cjs|map)$/],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -139,20 +135,19 @@ export default defineConfig(() => {
           enabled: false,
           type: 'module',
         },
-        disable: true,
       }),
     ],
+    build: {
+      minify: 'esbuild' as const,
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
-        // SECURITY FIX: Removed firestore shim alias
-        // The app now uses the real Firebase Firestore SDK
-        // 'firebase/firestore': path.resolve(__dirname, './src/services/firestoreShim.ts'),
       },
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modify—file watching is disabled to prevent flickering during agent edits.
+      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},

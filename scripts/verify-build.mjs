@@ -11,6 +11,15 @@ async function inspect(directory) {
   }
 }
 await inspect(web);
+const assets = await readdir(new URL('assets/', web));
+const styles = (await Promise.all(assets.filter(name => name.endsWith('.css')).map(name => readFile(new URL(`assets/${name}`, web), 'utf8')))).join('\n');
+for (const name of ['erp-button', 'erp-primary', 'erp-input', 'erp-panel', 'erp-error', 'erp-table']) {
+  assert(styles.includes(`.${name}`), `Missing shared ERP control in compiled CSS: ${name}`);
+}
+const scripts = (await Promise.all(assets.filter(name => name.endsWith('.js')).map(name => readFile(new URL(`assets/${name}`, web), 'utf8')))).join('\n');
+assert(scripts.includes('Customer CRM workspace'), 'Migrated customer screen missing from built application');
+assert(!scripts.includes('Offline Local Cache') && !scripts.includes('Cloud Production Active'), 'Legacy simulated behavior in built application');
+console.log('PASS: compiled shared control styles and migrated customer screen exist; legacy simulated status labels absent.');
 assert((await stat(new URL('../server-dist/server.cjs', import.meta.url))).size > 0);
 assert.match(await readFile(new URL('index.html', web), 'utf8'), /<div id="root"><\/div>/);
 const swUrl = new URL('../dist/sw.js', import.meta.url);

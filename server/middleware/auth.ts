@@ -1,155 +1,32 @@
-import type { Request, Response, NextFunction } from 'express';
-import { adminAuth, adminDb } from '../firebase-admin';
+import type { NextFunction, Request, Response } from 'express';
+import type { Auth } from 'firebase-admin/auth';
+import type { Firestore } from 'firebase-admin/firestore';
+import { ROLES, type Actor, type Role } from '../../shared/erp';
+import { ErpError, id } from '../erp/validation';
 
-// Extend Express Request to include authenticated user
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        uid: string;
-        email: string;
-        roleId: string;
-        branchId: string;
-        status: string;
-      };
-    }
-  }
-}
-
-/**
- * Firebase Auth Middleware
- * Verifies the Firebase ID token from the Authorization header
- * and attaches the user's profile to the request object.
- */
-export async function firebaseAuthMiddleware(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res.status(401).json({
-      error: 'UNAUTHORIZED',
-      message: 'Missing or invalid Authorization header. Expected: Bearer <token>'
-    });
-    return;
-  }
-
-  const token = authHeader.split('Bearer ')[1];
-
-  if (!token || token.length < 20) {
-    res.status(401).json({
-      error: 'UNAUTHORIZED',
-      message: 'Invalid token format'
-    });
-    return;
-  }
-
-  if (!adminAuth || !adminDb) {
-    res.status(503).json({
-      error: 'SERVICE_UNAVAILABLE',
-      message: 'Authentication service not configured. Set GOOGLE_APPLICATION_CREDENTIALS env var.'
-    });
-    return;
-  }
-
-  try {
-    const decodedToken = await adminAuth.verifyIdToken(token);
-
-    // Fetch user profile from Firestore
-    const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();
-
-    if (!userDoc.exists) {
-      res.status(401).json({
-        error: 'UNAUTHORIZED',
-        message: 'User profile not found'
-      });
-      return;
-    }
-
-    const userData = userDoc.data()!;
-    req.user = {
-      uid: decodedToken.uid,
-      email: decodedToken.email || '',
-      roleId: userData.roleId || 'customer',
-      branchId: userData.branchId || '',
-      status: userData.status || 'active'
-    };
-
-    next();
-  } catch (error: any) {
-    if (error.code === 'auth/expired-token') {
-      res.status(401).json({
-        error: 'TOKEN_EXPIRED',
-        message: 'Firebase ID token has expired'
-      });
-      return;
-    }
-    if (error.code === 'auth/argument-error') {
-      res.status(401).json({
-        error: 'INVALID_TOKEN',
-        message: 'Could not verify the provided token'
-      });
-      return;
-    }
-    console.error('[AUTH] Token verification error:', error.message);
-    res.status(401).json({
-      error: 'UNAUTHORIZED',
-      message: 'Token verification failed'
-    });
-  }
-}
-
-/**
- * Role-based authorization middleware factory
- * Usage: app.get('/api/orders', requireRole('admin', 'manager'), handler)
- */
-export function requireRole(...allowedRoles: string[]) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      res.status(401).json({
-        error: 'UNAUTHORIZED',
-        message: 'Authentication required'
-      });
-      return;
-    }
-
-    if (!allowedRoles.includes(req.user.roleId)) {
-      res.status(403).json({
-        error: 'FORBIDDEN',
-        message: `Access denied. Required role: ${allowedRoles.join(' or ')}. Your role: ${req.user.roleId}`
-      });
-      return;
-    }
-
-    next();
+export interface ERPRequest extends Request { actor?: Actor }
+export function createAuthenticate(auth: Pick<Auth, 'verifyIdToken'>, db: Firestore) {
+  return async (req: ERPRequest, _res: Response, next: NextFunction) => {
+    try {
+      const header = req.headers.authorization;
+      if (!header || !/^Bearer [^\s]+$/.test(header)) throw new ErpError(401, 'UNAUTHENTICATED', 'Sign in to access the ERP');
+      let decoded;
+      try { decoded = await auth.verifyIdToken(header.slice(7), true); }
+      catch (error: any) {
+        if (String(error?.code).startsWith('auth/') && !['auth/internal-error', 'auth/insufficient-permission', 'auth/invalid-credential'].includes(error.code)) {
+          throw new ErpError(401, 'INVALID_TOKEN', 'Session expired or invalid. Sign in again.');
+        }
+        throw new ErpError(503, 'AUTH_UNAVAILABLE', 'Authentication verification is unavailable');
+      }
+      const snapshot = await db.collection('users').doc(decoded.uid).get();
+      const p = snapshot.data();
+      if (!p || p.status !== 'active') throw new ErpError(403, 'PROFILE_REQUIRED', 'An administrator must provision an active employee profile before access.');
+      const role = p.roleId ?? p.role;
+      if (!ROLES.includes(role as Role) || (p.role && p.role !== role)) throw new ErpError(403, 'ROLE_REVIEW_REQUIRED', 'The employee role requires administrator review.');
+      try { id(p.companyId, 'companyId'); id(p.branchId, 'branchId'); }
+      catch { throw new ErpError(403, 'SCOPE_REQUIRED', 'The employee needs an explicit company and branch assignment.'); }
+      req.actor = { uid: decoded.uid, role, companyId: p.companyId, branchId: p.branchId, name: typeof p.name === 'string' ? p.name : '' };
+      next();
+    } catch (error) { next(error); }
   };
-}
-
-/**
- * Middleware to check if user account is active
- */
-export function requireActive(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
-  if (!req.user) {
-    res.status(401).json({
-      error: 'UNAUTHORIZED',
-      message: 'Authentication required'
-    });
-    return;
-  }
-
-  if (req.user.status !== 'active') {
-    res.status(403).json({
-      error: 'ACCOUNT_SUSPENDED',
-      message: 'Your account is not active. Contact your administrator.'
-    });
-    return;
-  }
-
-  next();
 }

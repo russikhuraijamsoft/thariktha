@@ -107,4 +107,4 @@ export type ERPDashboardTab =
   | 'dashboard' | 'orders' | 'inventory' | 'manufacturing'
   | 'printing' | 'servicing' | 'notifications' | 'customers'
   | 'billing' | 'staff' | 'routing' | 'architecture'
-  | 'reports' | 'settings';
+  | 'reports' | 'settings' | 'drive' | 'proposal';

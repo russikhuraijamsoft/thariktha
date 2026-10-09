@@ -250,7 +250,7 @@ class ERPIntegrationService {
    * Safe check to verify active connection scope and log failures.
    */
   public async isCloudScope(): Promise<boolean> {
-    const configData = await import('../firebase-applet-config.json');
+    const configData = await import('../../firebase-applet-config.json');
     return !!(configData.apiKey && !configData.apiKey.includes("PlaceholderJustForLocalCompiles"));
   }
 

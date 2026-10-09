@@ -1,37 +1,21 @@
-import type { ServiceAccount } from 'firebase-admin/app';
-import { initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import 'dotenv/config';
+import { applicationDefault, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import * as dotenv from 'dotenv';
+import { getFirestore } from 'firebase-admin/firestore';
+import clientConfig from '../firebase-applet-config.json';
 
-dotenv.config();
-
-// Initialize Firebase Admin SDK for server-side auth verification
-let adminApp: any = null;
-let adminDb: any = null;
-let adminAuth: any = null;
-
-try {
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    adminApp = initializeApp({
-      credential: cert(process.env.GOOGLE_APPLICATION_CREDENTIALS),
-    });
-  } else if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-    adminApp = initializeApp({
-      credential: cert(serviceAccount as ServiceAccount),
-    });
-  } else {
-    console.warn('[SERVER] No Firebase Admin credentials found. Auth middleware will reject all requests.');
-    console.warn('[SERVER] Set GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT_KEY env var.');
-  }
-
-  if (adminApp) {
-    adminDb = getFirestore(adminApp);
-    adminAuth = getAuth(adminApp);
-  }
-} catch (error: any) {
-  console.error('[SERVER] Firebase Admin initialization error:', error.message);
+// Public Firebase web configuration is not an Admin credential.
+// Production uses Application Default Credentials (workload identity preferred).
+export const projectId = process.env.GOOGLE_CLOUD_PROJECT || clientConfig.projectId;
+export const databaseId = process.env.FIRESTORE_DATABASE_ID || clientConfig.firestoreDatabaseId;
+const emulated = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
+if (emulated && (!projectId.startsWith('demo-') || !/^127\.0\.0\.1:\d+$/.test(process.env.FIRESTORE_EMULATOR_HOST!))) {
+  throw new Error('Emulator execution requires a demo-* project and loopback emulator address');
 }
-
-export { adminApp, adminDb, adminAuth };
+const appName = 'thariktha-server';
+export const adminApp = getApps().find(app => app.name === appName) || initializeApp({
+  projectId, ...(!emulated ? { credential: applicationDefault() } : {}),
+}, appName);
+export const adminAuth = getAuth(adminApp);
+export const adminDb = getFirestore(adminApp, databaseId);
+adminDb.settings({ ignoreUndefinedProperties: false });

@@ -1,69 +1,55 @@
 {
-  "name": "react-example",
+  "name": "cricket-closet-erp",
   "private": true,
-  "version": "2.0.0",
+  "version": "0.0.0",
   "type": "module",
+  "engines": { "node": ">=22" },
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "node dist/server.cjs",
-    "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
-  },
-  "jest": {
-    "preset": "ts-jest",
-    "testEnvironment": "node",
-    "roots": ["<rootDir>/tests"],
-    "testMatch": ["**/*.test.ts"],
-    "transform": {
-      "^.+\\.tsx?$": "ts-jest"
-    },
-    "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node"],
-    "collectCoverageFrom": [
-      "server/**/*.ts",
-      "!server/sandbox_db.json"
-    ],
-    "coverageDirectory": "coverage",
-    "coverageReporters": ["text", "lcov", "html"]
+    "build": "npm run build:web && npm run build:server && node scripts/verify-build.mjs",
+    "build:web": "vite build",
+    "build:server": "esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=server-dist/server.cjs",
+    "start": "node scripts/start-server.mjs",
+    "preview": "node scripts/start-server.mjs",
+    "clean": "node scripts/clean.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "npm run typecheck",
+    "test": "node scripts/run-tests.mjs unit",
+    "test:erp": "node scripts/run-emulator-tests.mjs",
+    "test:erp:local": "node scripts/run-tests.mjs emulator",
+    "test:server": "firebase emulators:exec --only firestore --project demo-thariktha --config firebase.json \"node scripts/server-smoke.mjs\"",
+    "emulator:start": "firebase emulators:start --only firestore --project demo-thariktha --config firebase.json"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.1.14",
-    "@vitejs/plugin-react": "^5.0.4",
+    "@google/genai": "^2.4.0",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "firebase": "^12.13.0",
-    "firebase-admin": "^13.1.0",
+    "firebase-admin": "14.5.0",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
-    "recharts": "^3.8.1",
-    "vite": "^6.2.3"
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@firebase/rules-unit-testing": "^5.0.2",
+    "@firebase/rules-unit-testing": "5.0.2",
+    "@tailwindcss/vite": "4.1.14",
     "@types/express": "^4.17.21",
-    "@types/jest": "^30.0.0",
     "@types/node": "^22.14.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "^5.0.4",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
-    "eslint": "^10.12.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.7",
-    "jest": "^30.5.2",
-    "prettier": "^3.9.9",
-    "tailwindcss": "^4.1.14",
-    "ts-jest": "^29.4.14",
-    "tsx": "^4.21.0",
+    "firebase-tools": "15.32.1",
+    "tailwindcss": "4.1.14",
+    "tsx": "4.23.15",
     "typescript": "~5.8.2",
-    "typescript-eslint": "^8.71.1",
     "vite": "^6.2.3",
     "vite-plugin-pwa": "^2.0.0"
+  },
+  "overrides": {
+    "lightningcss": "npm:lightningcss-wasm@1.30.1"
   }
 }

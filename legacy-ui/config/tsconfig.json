@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "module": "ESNext",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "allowJs": true,
+    "jsx": "react-jsx",
+    "types": ["jest", "node", "vite/client"],
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    },
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["src/**/*", "server", "server.ts", "vite.config.ts", "tests/**/*", "firebase-applet-config.json", "src/hooks/usePWAInstall.ts"],
+  "exclude": ["node_modules", "dist", "server-dist", "coverage", "src-tauri", "server/app.ts", "server/erp/engine.ts", "server/erp/validation.ts", "src/components/ERPCommandForm.tsx", "src/components/EntityWorkspace.tsx", "src/components/MetricDashboard.tsx", "src/components/OdooAppsLauncher.tsx", "src/components/OdooControlPanel.tsx", "src/components/OdooFormModal.tsx", "src/components/OdooKanbanBoard.tsx", "src/services/firebaseConfig.ts", "src/services/erpApi.ts", "src/hooks/useERPRecords.ts", "src/erpMetadata.ts", "src/erpForms.ts", "tests/erp.test.ts", "tests/http-auth.test.ts", "shared/erp.ts", "scripts/**/*"]
+}
