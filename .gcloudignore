@@ -1,0 +1,4 @@
+# Use the same deny-by-default boundary for Cloud Build source upload.
+# Verify the actual list with gcloud meta list-files-for-upload before submitting.
+#!include:.dockerignore
+!.gcloudignore
