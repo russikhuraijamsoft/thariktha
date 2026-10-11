@@ -80,6 +80,41 @@ test('identity requires matching active human and rejects alternate credential s
   assert.throws(() => checkIdentity(account, accounts(), { ...config(), api_endpoint_overrides: { run: 'https://evil.invalid' } }, {}));
   for (const key of ['CLOUDSDK_AUTH_ACCESS_TOKEN', 'CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT', 'CLOUDSDK_API_ENDPOINT_OVERRIDES_RUN', 'CLOUDSDK_CORE_ACCOUNT']) assert.throws(() => checkIdentity(account, accounts(), config(), { [key]: 'present' }));
 });
+// gcloud config list --all emits JSON null for unset properties.
+const overrideKeys = ['impersonate_service_account', 'access_token', 'access_token_file', 'credential_file_override', 'login_config_file', 'disable_credentials'];
+const unsetConfig = () => ({
+  ...config(),
+  auth: Object.fromEntries(overrideKeys.map(key => [key, null])),
+  api_endpoint_overrides: { run: null, cloudresourcemanager: null, iam: null },
+});
+test('identity accepts null and existing unset representations from gcloud config list --all', () => {
+  for (const value of [null, undefined, '', '(unset)', false, 'false']) {
+    const settings = unsetConfig();
+    settings.auth = Object.fromEntries(overrideKeys.map(key => [key, value]));
+    settings.api_endpoint_overrides.run = value;
+    assert.doesNotThrow(() => checkIdentity(account, accounts(), settings, {}));
+  }
+});
+test('null defaults never mask populated credential, endpoint or environment overrides', () => {
+  for (const key of overrideKeys) {
+    const settings = unsetConfig();
+    settings.auth[key] = key === 'disable_credentials' ? true : 'synthetic-override';
+    assert.throws(() => checkIdentity(account, accounts(), settings, {}), /overrides are not allowed/);
+  }
+  const settings = unsetConfig();
+  settings.api_endpoint_overrides.run = 'https://evil.invalid';
+  assert.throws(() => checkIdentity(account, accounts(), settings, {}), /overrides are not allowed/);
+  assert.throws(() => checkIdentity(account, accounts(), unsetConfig(), { CLOUDSDK_AUTH_ACCESS_TOKEN: 'synthetic-override' }), /environment overrides/);
+});
+test('full mocked preview accepts gcloud --all null defaults without bypassing checks', async () => {
+  const { state, deps } = fixture();
+  state.config = unsetConfig();
+  await runPreview(account, deps);
+  assert.ok(state.calls.some(args => args[0] === 'config' && args.includes('--all')));
+  assert.ok(state.logs.some(message => message.startsWith('TRANSPORT PASS:')));
+  assert.equal(state.starts.length, 1);
+  assert.equal(state.stopped, 1);
+});
 test('exact host allowlist rejects URL tricks before requests', () => {
   for (const origin of TARGET.origins) assert.equal(trustedOrigin(origin), origin);
   for (const origin of [undefined, 'https://evil.run.app', `${TARGET.origins[0]}/`, `${TARGET.origins[0]}:443`, `${TARGET.origins[0]}?x=1`, `${TARGET.origins[0]}#x`, `${TARGET.origins[0]}/path`, TARGET.origins[0].replace('https:', 'http:'), TARGET.origins[0].replace('https://', 'https://user@'), `${TARGET.origins[0]}.evil.invalid`]) assert.throws(() => trustedOrigin(origin));

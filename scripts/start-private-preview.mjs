@@ -34,7 +34,8 @@ export function checkIdentity(account, accounts, config, env) {
   parseAccount([`--account=${account}`]);
   const active = accounts.filter(entry => entry.status === 'ACTIVE');
   requireCheck(active.length === 1 && active[0].account === account && config.core?.account === account, 'Active gcloud account does not match the requested human account.');
-  const set = value => value !== undefined && value !== '' && value !== '(unset)' && value !== false && value !== 'false';
+  // gcloud config list --all represents unset properties as JSON null.
+  const set = value => value !== null && value !== undefined && value !== '' && value !== '(unset)' && value !== false && value !== 'false';
   const forbidden = ['impersonate_service_account', 'access_token', 'access_token_file', 'credential_file_override', 'login_config_file', 'disable_credentials'];
   requireCheck(!forbidden.some(key => set(config.auth?.[key])) && !Object.values(config.api_endpoint_overrides || {}).some(set), 'gcloud credential/impersonation/endpoint overrides are not allowed.');
   requireCheck(!Object.entries(env).some(([key, value]) => value && /^(?:CLOUDSDK_AUTH_|CLOUDSDK_API_ENDPOINT_OVERRIDES_|CLOUDSDK_CORE_ACCOUNT$)/.test(key)), 'Remove gcloud auth/account/endpoint environment overrides before using this helper.');
