@@ -62,6 +62,13 @@ export function createApp(db: Firestore, auth: Pick<Auth, 'verifyIdToken'>, opti
   app.use('/api', (_req, _res, next) => next(new ErpError(404, 'NOT_FOUND', 'Unknown API endpoint')));
   if (options.serveWeb) {
     const dist = path.resolve(process.cwd(), 'dist');
+    // Hidden/private paths must not fall through to the SPA shell.
+    app.use((req, res, next) => {
+      if (req.path.split('/').some(segment => segment.startsWith('.'))) {
+        res.status(404).type('text/plain').send('Not found'); return;
+      }
+      next();
+    });
     app.use(express.static(dist, { index: false, dotfiles: 'deny' }));
     app.get('*', (req, res, next) => {
       if (path.extname(req.path)) { res.status(404).type('text/plain').send('Not found'); return; }

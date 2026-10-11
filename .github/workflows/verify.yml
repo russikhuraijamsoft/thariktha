@@ -32,6 +32,8 @@ jobs:
       - name: Firestore transaction integration and security rules
         run: npm run test:erp
       - run: npm run build
+      - name: Built ERP shell, authenticated API boundary and private-file denial
+        run: node scripts/server-smoke.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: web-assets

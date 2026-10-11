@@ -75,7 +75,10 @@ try {
   const legacy = await fetch(`http://127.0.0.1:${port}/api/query`);
   assert.equal(legacy.status, 404);
   assert.equal((await legacy.json()).error.code, 'NOT_FOUND');
-  console.log('PASS: built server serves the correct ERP shell and styles; health is alive; customer reads/writes and readiness require authentication; legacy query route is inactive.');
+  for (const privatePath of ['/.env', '/.git/config', '/package.json', '/server.ts']) {
+    assert.equal((await fetch(`http://127.0.0.1:${port}${privatePath}`)).status, 404, privatePath);
+  }
+  console.log('PASS: built server serves the correct ERP shell and styles; health is alive; customer reads/writes and readiness require authentication; legacy query route is inactive; private paths return 404.');
 } finally {
   await stop();
 }
