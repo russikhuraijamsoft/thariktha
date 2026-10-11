@@ -49,6 +49,12 @@ try {
 
   const index = await fetch(`http://127.0.0.1:${port}/`);
   assert.equal(index.status, 200);
+  const policy = index.headers.get('content-security-policy');
+  assert(policy, 'Built production shell must send CSP');
+  const scriptDirective = policy.split(';').map(part => part.trim()).find(part => part.startsWith('script-src '));
+  assert.equal(scriptDirective, "script-src 'self' https://apis.google.com", 'Allow Firebase GAPI loader but no inline/eval/wildcard scripts');
+  assert.match(policy, /(?:^|;\s*)object-src 'none'(?:;|$)/);
+  assert.match(policy, /(?:^|;\s*)frame-ancestors 'none'(?:;|$)/);
   const html = await index.text();
   assert.match(html, /<div id="root"><\/div>/);
   assert.match(html, /<title>Talk of the Town Cricket Closet ERP<\/title>/);

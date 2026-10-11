@@ -16,7 +16,9 @@ export function createApp(db: Firestore, auth: Pick<Auth, 'verifyIdToken'>, opti
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-    if (production) res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com; frame-src https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+    // Firebase popup auth loads the GAPI bootstrap and iframe modules from this exact origin.
+    // Keep inline/eval scripts disallowed; connect-src does not authorize script loads.
+    if (production) res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com; frame-src https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
     if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
     const origin = req.headers.origin;
     // Same-origin browser requests need no CORS headers; native clients explicitly allowlist their origin.
